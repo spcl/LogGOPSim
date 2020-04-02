@@ -45,6 +45,15 @@ Visualization
   * view postscript output:
     - e.g., gv viz.eps
 
+MPI Matching Data
+------------------
+
+  * run LogGOPSim with -qstat <outfile-prefix> option:
+    - e.g., LogGOPSim -f dissemination_16.bin -stat mpi-matching will produce several
+      files containing MPI match queue data with names that have the form mpi-matching.*.data
+
+  * additional information on the MPI matching data is available in README-mpi-matching
+
 Schedgen - automatic GOAL schedule generator
 --------------------------------------------
 
