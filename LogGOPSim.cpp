@@ -67,21 +67,25 @@ typedef unsigned long long int ullint;
 // matches and removes element from list if found, otherwise returns
 // false
 typedef std::list<ruqelem_t> ruq_t;
-static inline bool match(const graph_node_properties &elem, ruq_t *q, ruqelem_t *retelem=NULL) {
+static inline int match(const graph_node_properties &elem, ruq_t *q, ruqelem_t *retelem=NULL) {
+
+  // MATCH attempts (i.e., number of elements searched to find a matching element)
+  int match_attempts = 0;
   
   //std::cout << "UQ size " << q->size() << "\n";
 
   if(print) printf("++ [%i] searching matching queue for src %i tag %i\n", elem.host, elem.target, elem.tag);
   for(ruq_t::iterator iter=q->begin(); iter!=q->end(); ++iter) {
+    match_attempts++;
     if(elem.target == ANY_SOURCE || iter->src == ANY_SOURCE || iter->src == elem.target) {
       if(elem.tag == ANY_TAG || iter->tag == ANY_TAG || iter->tag == elem.tag) {
         if(retelem) *retelem=*iter;
         q->erase(iter);
-        return true;        
+        return match_attempts;        
       }
     }
   }
-  return false;
+  return -1;
 }
 #else
 class myhash { // I WANT LAMBDAS! :)
@@ -91,21 +95,21 @@ class myhash { // I WANT LAMBDAS! :)
   }
 };
 typedef std::hash_map< std::pair</*tag*/int,int/*src*/>, std::queue<ruqelem_t>, myhash > ruq_t;
-static inline bool match(const graph_node_properties &elem, ruq_t *q, ruqelem_t *retelem=NULL) {
+static inline int match(const graph_node_properties &elem, ruq_t *q, ruqelem_t *retelem=NULL) {
   
   if(print) printf("++ [%i] searching matching queue for src %i tag %i\n", elem.host, elem.target, elem.tag);
 
   ruq_t::iterator iter = q->find(std::make_pair(elem.tag, elem.target));
   if(iter == q->end()) {
-    return false;
+    return -1;
   }
   std::queue<ruqelem_t> *tq=&iter->second;
   if(tq->empty()) {
-    return false;
+    return -1;
   }
   if(retelem) *retelem=tq->front();
   tq->pop();
-  return true;
+  return 0;
 }
 #endif
 
@@ -121,6 +125,13 @@ int main(int argc, char **argv) {
     throw(10);
 	}
   
+#ifndef LIST_MATCH
+  if( args_info.qstat_given ){
+    printf("WARNING: --qstat option provided, but LogGOPSim was compiled with LIST_MATCH;\n"
+           "         statistics on match queue behavior are NOT valid.\n"); 
+  }
+#endif
+
   // read input parameters
   const int o=args_info.LogGOPS_o_arg;
   const int O=args_info.LogGOPS_O_arg;
@@ -137,10 +148,44 @@ int main(int argc, char **argv) {
   const int ncpus = parser.GetNumCPU();
   const int nnics = parser.GetNumNIC();
 
-  printf("size: %i (%i CPUs, %i NICs); L=%i, o=%i g=%i, G=%i, O=%i, P=%i, S=%u\n", p, ncpus, nnics, L, o, g, G, O, p, S);
+  printf("size: %i (%i CPUs, %i NICs); L=%i, o=%i g=%i, G=%i, O=%i, P=%i, S=%u\n", 
+         p, ncpus, nnics, L, o, g, G, O, p, S);
 
   TimelineVisualization tlviz(&args_info, p);
   Noise osnoise(&args_info, p);
+
+  // DATA structures for storing MPI matching statistics
+  std::vector<int> rq_max(0);
+  std::vector<int> uq_max(0); 
+
+  std::vector< std::vector< std::pair<int,btime_t> > > rq_matches(0);
+  std::vector< std::vector< std::pair<int,btime_t> > > uq_matches(0);
+
+  std::vector< std::vector< std::pair<int,btime_t> > > rq_misses(0);
+  std::vector< std::vector< std::pair<int,btime_t> > > uq_misses(0);
+
+  std::vector< std::vector<btime_t> > rq_times(0);
+  std::vector< std::vector<btime_t> > uq_times(0); 
+
+  if( args_info.qstat_given ){
+    // Initialize MPI matching data structures
+    rq_max.resize(p);
+    uq_max.resize(p); 
+
+    for( int i : rq_max ) {
+      rq_max[i] = 0;
+      uq_max[i] = 0;
+    }
+
+    rq_matches.resize(p);
+    uq_matches.resize(p);
+
+    rq_misses.resize(p);
+    uq_misses.resize(p);
+
+    rq_times.resize(p);
+    uq_times.resize(p);
+  }
 
   // the active queue 
   std::priority_queue<graph_node_properties,std::vector<graph_node_properties>,aqcompare_func> aq;
@@ -305,8 +350,24 @@ int main(int argc, char **argv) {
         if(print) printf("-- satisfy local irequires\n");
         
         ruqelem_t matched_elem; 
-        if(match(elem, &uq[elem.host], &matched_elem))  { // found it in local UQ 
+        // NUMBER of elements that were searched during message matching
+        int32_t match_attempts;
+
+        // UPDATE the maximum UQ size
+        if( args_info.qstat_given ){
+          uq_max[elem.host] = std::max((int)uq[elem.host].size(), uq_max[elem.host]);
+        }
+
+        match_attempts = match(elem, &uq[elem.host], &matched_elem);
+        if(match_attempts >= 0)  { // found it in local UQ 
           if(print) printf("-- found in local UQ\n");
+          if(args_info.qstat_given) {
+            // RECORD match queue statistics
+            std::pair<int,btime_t> match = std::make_pair(match_attempts, elem.time);
+            uq_matches[elem.host].push_back(match);
+            uq_times[elem.host].push_back(elem.time - matched_elem.starttime);
+          }
+
           if(elem.size > S) { // rendezvous - free remote request
             // satisfy remote requires 
             parser.schedules[matched_elem.src].MarkNodeAsDone(matched_elem.offset); // this must be the offset of the remote packet!
@@ -335,6 +396,11 @@ int main(int argc, char **argv) {
           check_hosts.push_back(elem.host);
           if(print) printf("-- satisfy local requires\n");
         } else { // not found in local UQ - add to RQ
+          if(args_info.qstat_given) {
+            // RECORD match queue statistics
+            std::pair<int,btime_t> match = std::make_pair((int)uq[elem.host].size(), elem.time);
+            uq_misses[elem.host].push_back(match);
+          }
           if(print) printf("-- not found in local UQ -- add to RQ\n");
           ruqelem_t nelem; 
           nelem.size = elem.size;
@@ -352,6 +418,8 @@ int main(int argc, char **argv) {
       case OP_MSG: {
         if(print) printf("[%i] found msg from %i, t: %lu (CPU: %i)\n", elem.host, elem.target, (ulint)elem.time, elem.proc);
         uint64_t earliestfinish;
+        // NUMBER of elements that were searched during message matching
+        int32_t match_attempts;
 		    if((earliestfinish = net.query(elem.starttime, elem.time, elem.target, elem.host, elem.size, &elem.handle)) <= elem.time /* msg made it through network */ &&
            std::max(nexto[elem.host][elem.proc],nextgr[elem.host][elem.nic]) <= elem.time /* local o,g available! */) { 
           if(print) printf("-- msg o,g available (nexto: %lu, nextgr: %lu)\n", (long unsigned int) nexto[elem.host][elem.proc], (long unsigned int) nextgr[elem.host][elem.nic]);
@@ -360,8 +428,22 @@ int main(int argc, char **argv) {
           nexto[elem.host][elem.proc] = elem.time+o+noise+std::max((elem.size-1)*O,(elem.size-1)*G) /* message is only received after G is charged !! TODO: consuming o seems a bit odd in the LogGP model but well in practice */;
           nextgr[elem.host][elem.nic] = elem.time+g+(elem.size-1)*G;
           
+          // UPDATE the maximum RQ size
+          if( args_info.qstat_given ){
+            rq_max[elem.host] = std::max((int)rq[elem.host].size(), rq_max[elem.host]);
+          }
+ 
           ruqelem_t matched_elem; 
-          if(match(elem, &rq[elem.host], &matched_elem)) { // found it in RQ
+          match_attempts = match(elem, &rq[elem.host], &matched_elem);
+          if(match_attempts >= 0) { // found it in RQ
+            if(args_info.qstat_given) {
+              // RECORD match queue statistics
+              std::pair<int,btime_t> match = std::make_pair(match_attempts, elem.time);
+              rq_matches[elem.host].push_back(match);
+              /* Amount of time spent in queue */
+              rq_times[elem.host].push_back(elem.time - matched_elem.starttime);
+            }
+
             if(print) printf("-- found in RQ\n");
             if(elem.size > S) { // rendezvous - free remote request
               // satisfy remote requires
@@ -391,6 +473,12 @@ int main(int argc, char **argv) {
 
 
           } else { // not in RQ
+            if(args_info.qstat_given) {
+              // RECORD match queue statistics
+              std::pair<int,btime_t> match = std::make_pair((int)rq[elem.host].size(), elem.time);
+              rq_misses[elem.host].push_back(match);
+            }
+
             if(print) printf("-- not found in RQ - add to UQ\n");
             ruqelem_t nelem;
             nelem.size = elem.size;
@@ -536,6 +624,131 @@ int main(int argc, char **argv) {
         }
       }
       std::cout << "Maximum finishing time at host " << host << ": " << max << " ("<<(double)max/1e9<< " s)\n";
+    }
+
+    // WRITE match queue statistics
+    if( args_info.qstat_given ){
+      char filename[1024];
+
+      // Maximum RQ depth
+      snprintf(filename, sizeof filename, "%s-%s", args_info.qstat_arg, "rq-max.data");
+      std::ofstream rq_max_file(filename);
+
+      if( !rq_max_file.is_open() ) {
+        std::cerr << "Can't open rq-max data file" << std::endl;
+      } else {
+        // WRITE one line per rank
+        for( int n : rq_max ) {
+          rq_max_file << n << std::endl;
+        }
+      }
+      rq_max_file.close();
+
+      // Maximum UQ depth
+      snprintf(filename, sizeof filename, "%s-%s", args_info.qstat_arg, "uq-max.data");
+      std::ofstream uq_max_file(filename);
+
+      if( !uq_max_file.is_open() ) {
+        std::cerr << "Can't open uq-max data file" << std::endl;
+      } else {
+        // WRITE one line per rank
+        for( int n : uq_max ) {
+          uq_max_file << n << std::endl;
+        }
+      }
+      uq_max_file.close();
+
+      // RQ hit depth (number of elements searched for each successful search)
+      snprintf(filename, sizeof filename, "%s-%s", args_info.qstat_arg, "rq-hit.data");
+      std::ofstream rq_hit_file(filename);
+
+      if( !rq_hit_file.is_open() ) {
+        std::cerr << "Can't open rq-hit data file (" << filename << ")" << std::endl;
+      } else {
+        // WRITE one line per rank
+        for( auto per_rank_matches = rq_matches.begin(); 
+                  per_rank_matches != rq_matches.end();  
+                  per_rank_matches++ ) 
+        {
+          for( auto match_pair = (*per_rank_matches).begin(); 
+                    match_pair != (*per_rank_matches).end(); 
+                    match_pair++ ) 
+          {
+            rq_hit_file << (*match_pair).first << "," << (*match_pair).second << " ";
+          }
+          rq_hit_file << std::endl;
+        }
+      }
+      rq_hit_file.close();
+
+      // UQ hit depth (number of elements searched for each successful search)
+      snprintf(filename, sizeof filename, "%s-%s", args_info.qstat_arg, "uq-hit.data");
+      std::ofstream uq_hit_file(filename);
+
+      if( !uq_hit_file.is_open() ) {
+        std::cerr << "Can't open uq-hit data file (" << filename << ")" << std::endl;
+      } else {
+        // WRITE one line per rank
+        for( auto per_rank_matches = uq_matches.begin(); 
+                  per_rank_matches != uq_matches.end();  
+                  per_rank_matches++ ) 
+        {
+          for( auto match_pair = (*per_rank_matches).begin(); 
+                    match_pair != (*per_rank_matches).end(); 
+                    match_pair++ ) 
+          {
+            uq_hit_file << (*match_pair).first << "," << (*match_pair).second << " ";
+          }
+          uq_hit_file << std::endl;
+        }
+      }
+      uq_hit_file.close();
+
+      // RQ miss depth (number of elements searched for each unsuccessful search)
+      snprintf(filename, sizeof filename, "%s-%s", args_info.qstat_arg, "rq-miss.data");
+      std::ofstream rq_miss_file(filename);
+
+      if( !rq_miss_file.is_open() ) {
+        std::cerr << "Can't open rq-miss data file (" << filename << ")" << std::endl;
+      } else {
+        // WRITE one line per rank
+        for( auto per_rank_misses = rq_misses.begin(); 
+                  per_rank_misses != rq_misses.end();  
+                  per_rank_misses++ ) 
+        {
+          for( auto miss_pair = (*per_rank_misses).begin(); 
+                    miss_pair != (*per_rank_misses).end(); 
+                    miss_pair++ ) 
+          {
+            rq_miss_file << (*miss_pair).first << "," << (*miss_pair).second << " ";
+          }
+          rq_miss_file << std::endl;
+        }
+      }
+      rq_miss_file.close();
+
+      // UQ miss depth (number of elements searched for each unsuccessful search)
+      snprintf(filename, sizeof filename, "%s-%s", args_info.qstat_arg, "uq-miss.data");
+      std::ofstream uq_miss_file(filename);
+
+      if( !uq_miss_file.is_open() ) {
+        std::cerr << "Can't open uq-miss data file (" << filename << ")" << std::endl;
+      } else {
+        // WRITE one line per rank
+        for( auto per_rank_misses = uq_misses.begin(); 
+                  per_rank_misses != uq_misses.end();  
+                  per_rank_misses++ ) 
+        {
+          for( auto miss_pair = (*per_rank_misses).begin(); 
+                    miss_pair != (*per_rank_misses).end(); 
+                    miss_pair++ ) 
+          {
+            uq_miss_file << (*miss_pair).first << "," << (*miss_pair).second << " ";
+          }
+          uq_miss_file << std::endl;
+        }
+      }
+      uq_miss_file.close();
     }
   }
 }

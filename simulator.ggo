@@ -20,4 +20,5 @@ option "noise-trace"    -  "Read Noise from trace <file>" string optional
 option "noise-cosched"  -  "Co-schedule noise (use same starttime on all processes)" flag off
 option "network-type"   n  "Network type (LogGP=no network congestion; simple=simple linear model)" values="LogGP","simple" default="LogGP" string optional
 option "network-file"   -  "Input file for network (annotated dot format)" string optional
+option "qstat"          -  "Enable PQ and UQ statistics.  Argument is output filename prefix" default="Unknown" string optional
 
