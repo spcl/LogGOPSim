@@ -79,7 +79,7 @@ Liballprof-1.0 - Collecting traces from mpi applications
 ----------------------------------------------------
   (Using MPICH version 3.3.1 installed in /usr/local)
   
-  * Prepare liballprof-1.0 
+  * Prepare liballprof-1.0   
      `cd ~`  
      `wget -qO- http://spcl.inf.ethz.ch/Research/Performance/LogGOPSim/liballprof-1.0.tgz | tar xzf -`   
      `cd liballprof-1.0/`  
