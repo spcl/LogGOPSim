@@ -74,6 +74,33 @@ Schedgen - automatic GOAL schedule generator
     - convert and simulate:
       - e.g., txt2bin -i sweep-4.goal -o sweep-4.bin
               LogGOPSim -f sweep-4.bin
+              
+Liballprof-1.0 - Collecting traces from mpi applications
+----------------------------------------------------
+  (Using MPICH version 3.3.1 installed in /usr/local)
+
+  * Prepare liballprof-1.0 
+     'cd ~'
+     'wget -qO- http://spcl.inf.ethz.ch/Research/Performance/LogGOPSim/liballprof-1.0.tgz | tar xzf -'
+     'cd liballprof-1.0/'
+     './configure'
+     -> Add '-fPIC' to CFLAGS option in the Makefile
+     
+  * Compile liballprof-1.0
+     'make'
+     -> If conflic types error during make command, copy the mpi.h file to /usr/local/include/
+     'make install'
+          
+  * Generate liballprof library
+     'cd .libs/'
+     'gcc -shared -o libConOs.so ../mpipclog.o ../sync.o -L~/liballprof-1.0/.libs -lclog'
+     
+  * Collect Traces using liballprof
+    e.g., using a hello world mpi application
+    - 'LD_PRELOAD=./libConOs.so mpirun -np 6 ../hello'
+    The traces are generated in /tmp folder after running above command 
+     
+  
 
 Citation
 --------
