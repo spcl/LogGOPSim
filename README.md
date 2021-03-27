@@ -75,7 +75,7 @@ Schedgen - automatic GOAL schedule generator
       - e.g., txt2bin -i sweep-4.goal -o sweep-4.bin
               LogGOPSim -f sweep-4.bin
               
-Liballprof-1.0 - Collecting traces from mpi applications
+Liballprof-1.0 - Collecting traces from MPI applications
 ----------------------------------------------------
   (Using MPICH version 3.3.1 installed in /usr/local)
   
