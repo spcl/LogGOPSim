@@ -1,0 +1,10 @@
+package "drawviz" 
+version "0.1"
+
+option "inputfile"   i "Name of the inputfile (event data)" string
+option "outputfile"  o "Name of the output file (postscript)" default="timeline.ps" string optional
+option "linethickness" l "Thickness of lines" default="1" int optional
+option "starttime"     s "Starttime, if only a interval should be drawn" default="0" int optional
+option "endtime"     e "Endtime, if only a interval should be drawn" default="0" int optional
+option "arrowheads"  - "If this flag is given, arrowheads will be drawn" flag off
+option "descrtext"   - "If this flag is given, text will be written below o_send and o_recv" flag off
