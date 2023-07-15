@@ -8,9 +8,9 @@
 
 class TimelineVisualization {
 
-	private:
+    private:
 	std::string content;
-  bool enable;
+  	bool enable;
 	std::string filename;
 
   void add_ranknum(int numranks) {
@@ -38,10 +38,10 @@ class TimelineVisualization {
 
 
 
-	public:
+  public:
 
-  TimelineVisualization(gengetopt_args_info *args_info, int p) : enable(enable) {
-    enable = args_info->vizfile_given;
+  TimelineVisualization(gengetopt_args_info *args_info, int p) {
+    this->enable = args_info->vizfile_given;
     if(!enable) return;
 
     filename = args_info->vizfile_arg;
