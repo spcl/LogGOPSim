@@ -738,7 +738,7 @@ s_err:
 }
 }
 
-main(int argc, char **argv){
+int main(int argc, char **argv){
     
 	Scanner in;
 	int lastprogress = 0;
