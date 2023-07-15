@@ -333,7 +333,7 @@ void change_zero_to_host(char *mask, char *buffer, int host) {
     substr++;
   strcpy(str_end, substr);
 
-  sprintf(buffer, "%s%i%s", str_start, host, str_end);
+  snprintf(buffer, MAX_STRLEN, "%s%i%s", str_start, host, str_end);
 }
 
 static inline Goal::t_id
