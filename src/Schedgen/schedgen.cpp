@@ -16,8 +16,8 @@
 #include <sstream>
 #include <stdlib.h>
 #include <string.h>
+#include <random>
 
-#include "MersenneTwister.h"
 #include "schedgen.hpp"
 
 #define RANK2VRANK(rank, vrank, root)                                          \
@@ -773,14 +773,14 @@ void create_random_bisect(gengetopt_args_info *args_info) {
   int datasize = args_info->datasize_arg;
   Goal goal(args_info, comm_size);
 
-  MTRand mtrand;
+  std::mt19937 mtrand(time(0));
   std::vector<int> peer(
       comm_size); // save the pairs (peer[i] is the peer of host i)
   std::vector<bool> used(comm_size, false); // mark the used peers
 
   // quick method to create a random pairing
   for (int counter = 0; counter < comm_size; counter++) {
-    int myrand = mtrand.randInt(comm_size - counter - 1);
+    int myrand = (((double) mtrand()) / mtrand.max()) *  (comm_size - counter - 1) ;
     int pos = 0;
     while (true) {
       // walk the used array (only the entries that are not used)
@@ -829,15 +829,15 @@ void create_random_bisect_fd_sym(gengetopt_args_info *args_info) {
     comm_size--;
   int datasize = args_info->datasize_arg;
   Goal goal(args_info, comm_size);
+  std::mt19937 mtrand(time(0));
 
-  MTRand mtrand;
   std::vector<int> peer(
       comm_size); // save the pairs (peer[i] is the peer of host i)
   std::vector<bool> used(comm_size, false); // mark the used peers
 
   // quick method to create a random pairing
   for (int counter = 0; counter < comm_size; counter++) {
-    int myrand = mtrand.randInt(comm_size - counter - 1);
+    int myrand = (((double) mtrand()) / mtrand.max()) *  (comm_size - counter - 1) ;
     int pos = 0;
     while (true) {
       // walk the used array (only the entries that are not used)

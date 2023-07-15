@@ -3,8 +3,8 @@
 #include <assert.h>
 #include <fstream>
 #include <vector>
-#include "MersenneTwister.h"
 #include <limits>
+#include <random>
 
 class Noise {
   private:
@@ -61,13 +61,13 @@ class Noise {
       else
         std::cout << "(independent)\n";
 
-      MTRand mtrand;
-      double cosched_starttime = mtrand.rand((double)trctime);
+      std::mt19937 mtrand(time(0));
+      double cosched_starttime = ((double)mtrand()/mtrand.max())*((double)trctime);
       for(int i=0; i<p; i++) {
         if(args_info->noise_cosched_given) {
           ranktime.push_back((uint64_t)cosched_starttime);
         } else {
-          double starttime = mtrand.rand((double)trctime);
+          double starttime = ((double)mtrand()/mtrand.max())*((double)trctime);
           ranktime.push_back((uint64_t)starttime);
           //printf("%i %llu %llu\n", i, (uint64_t)starttime, trctime);
         }
