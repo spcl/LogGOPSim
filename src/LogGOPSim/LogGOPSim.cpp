@@ -28,7 +28,7 @@
 #endif
 
 #include <queue>
-#include "cmdline.h"
+#include "loggopsim_cmdline.h"
 
 #include <sys/time.h>
 
@@ -37,7 +37,6 @@
 #include "TimelineVisualization.hpp"
 #include "Noise.hpp"
 #include "Parser.hpp"
-#include "cmdline.h"
 
 #ifndef LIST_MATCH
 namespace std

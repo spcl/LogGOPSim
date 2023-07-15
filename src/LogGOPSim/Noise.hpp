@@ -1,4 +1,4 @@
-#include "cmdline.h"
+#include "loggopsim_cmdline.h"
 #include <iostream>
 #include <assert.h>
 #include <fstream>

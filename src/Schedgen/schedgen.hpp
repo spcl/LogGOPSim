@@ -18,7 +18,7 @@
 #include <vector>
 //#include <boost/regex.hpp>
 #include "buffer_element.hpp"
-#include "cmdline.h"
+#include "schedgen_cmdline.h"
 
 class Goal;
 
@@ -48,7 +48,7 @@ class Goal {
 public:
   Comm *comm;
   typedef int t_id;             // identifier type
-  static const t_id NO_ID = -1; // invalid identifier
+  static const t_id NO_ID; // invalid identifier
 
   typedef std::vector<std::pair<t_id, LocOp::t_type>>
       locop; /* used to identify local operations for dependencies, it's a

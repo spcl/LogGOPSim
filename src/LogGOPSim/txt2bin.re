@@ -13,7 +13,7 @@
 #include <sys/types.h>
 
 #include "Goal.hpp"
-#include "cmdline_txt2bin.h"
+#include "txt2bin_cmdline.h"
 
 typedef unsigned int uint;
 typedef unsigned char uchar;

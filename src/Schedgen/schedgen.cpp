@@ -39,6 +39,8 @@
 
 int MAKE_TAG(int comm, int tag);
 
+const int Goal::NO_ID = 0;
+
 Goal::Goal(gengetopt_args_info *args_info, int nranks)
     : sends(0), recvs(0), execs(0), ranks(0), reqs(0), curtag(-1) {
   // create filename
