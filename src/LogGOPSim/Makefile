@@ -3,9 +3,9 @@ CXXFLAGS= -std=c++11 -O0 -g -pedantic -Wno-deprecated -Wall -Wno-long-long -I/op
 CCFLAGS= -O0 -g 
 LDFLAGS= -L/opt/homebrew/lib/ -lcgraph -g
 
-AUTOGEN_SRC= cmdline.c cmdline.h 
+AUTOGEN_SRC= loggopsim_cmdline.c loggopsim_cmdline.h 
 LOGGOPSIM_OBJECTS= LogGOPSim.o 
-HLPR_OBJECTS= cmdline.o 
+HLPR_OBJECTS= loggopsim_cmdline.o 
 ALL_OBJECTS= $(LOGGOPSIM_OBJECTS) $(HLPR_OBJECTS)
 BINARY= LogGOPSim
 
@@ -14,14 +14,14 @@ all: $(ALL_OBJECTS) cmdline.h txt2bin
 
 txt2bin:
 	re2c -o txt2bin.cpp txt2bin.re
-	gengetopt --file-name=cmdline_txt2bin < txt2bin.ggo
-	$(CXX) -g -O3 txt2bin.cpp cmdline_txt2bin.c -o txt2bin
+	gengetopt -F txt2bin_cmdline -i txt2bin_cmdline.ggo
+	$(CXX) -g -O3 txt2bin.cpp txt2bin_cmdline.c -o txt2bin
 
-cmdline.c: simulator.ggo 
-	gengetopt < simulator.ggo
+loggopsim_cmdline.c: loggopsim_cmdline.ggo 
+	gengetopt -F loggopsim_cmdline -i loggopsim_cmdline.ggo
 
-cmdline.h: simulator.ggo
-	gengetopt < simulator.ggo
+loggopsim_cmdline.h: loggopsim_cmdline.ggo
+	gengetopt -F loggopsim_cmdline -i loggopsim_cmdline.ggo
 
 %.o: %.cpp $(AUTOGEN_SRC) *.hpp 
 	$(CXX) $(CXXFLAGS) -c $<
