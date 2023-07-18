@@ -9,7 +9,7 @@ HLPR_OBJECTS= loggopsim_cmdline.o
 ALL_OBJECTS= $(LOGGOPSIM_OBJECTS) $(HLPR_OBJECTS)
 BINARY= LogGOPSim
 
-all: $(ALL_OBJECTS) cmdline.h txt2bin
+all: $(ALL_OBJECTS) loggopsim_cmdline.h txt2bin_cmdline.h txt2bin
 	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS) -o $(BINARY) $(LDFLAGS)
 
 txt2bin:
