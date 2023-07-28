@@ -1,0 +1,4 @@
+This is a prototype of a GAOL schedule generator in Python.
+At present this is not intended as a replacement for Schedgen. APIs might change drastically.
+The GOAL :) of this version is to make it easy to compose GOAL schedules, by keeping everything in memory.
+Schedgen on the other hand is optimized to minimize memory footprint and does not easily allow composability, i.e., supporting communicators.
