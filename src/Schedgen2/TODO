@@ -1,0 +1,3 @@
+- implement re-rooting, now we assume rank 0 is root
+- implement sub-comms, comm-flattening
+- handle tags, allow merging and appending of schedules
