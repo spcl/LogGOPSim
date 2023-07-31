@@ -34,6 +34,7 @@ class GoalOp:
         self.depends_on = []
 
     def requires(self, required):
+        # TODO check that self and required translate to the same rank in comm_world - we don't have the rank here :(
         self.depends_on.append(required)
 
 
@@ -85,14 +86,25 @@ class GoalRank:
         self.ops = []
 
     def Send(self, dst, tag, size):
+        if dst > self.comm.CommSize():
+            raise ValueError(str(dst)+" is larger than comm size!")
         op = GoalSend(dst=dst, tag=tag, size=size)
         self.ops.append(op)
         return op
 
     def Recv(self, src, tag, size):
+        if src > self.comm.CommSize():
+            raise ValueError(str(src)+" is larger than comm size!")
         op = GoalRecv(src=src, tag=tag, size=size)
         self.ops.append(op)
         return op
+
+    def Calc(self, size):
+        op = GoalCalc(size=size)
+        self.ops.append(op)
+        return op
+
+
 
     def write_goal(self, labeller, fh, rankid=True, basecomm=None):
         if basecomm is None:
@@ -126,6 +138,12 @@ class GoalComm:
 
     def Recv(self, dst, src, tag, size):
         return self[dst].Recv(src, tag, size)
+
+    def Calc(self, host, size):
+        return self[host].Calc(size)
+
+    def CommSize(self):
+        return self.comm_size
 
     def CommSplit(self, color, key):
         if len(list(color)) < self.comm_size or len(list(key)) < self.comm_size:
@@ -177,6 +195,7 @@ if __name__ == "__main__":
     comms[0][1].Recv(0, 42, 32)
     comms[1][1].Send(0, 42, 16)
     comms[1][0].Recv(1, 42, 16)
+    comms[1][0].Calc(23)
     comms[0].write_goal()
     comms[1].write_goal()
     comm_world.write_goal()
