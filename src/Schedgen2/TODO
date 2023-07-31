@@ -1,3 +1,5 @@
 - implement re-rooting, now we assume rank 0 is root
-- implement sub-comms, comm-flattening
+- implement comm-flattening
 - handle tags, allow merging and appending of schedules
+- get rid of GetLabel (label should be index in ops)
+- implement GetIndependentOps and GetLastOps
