@@ -1,5 +1,4 @@
 import sys
-from more_itertools import bucket
 
 class GoalLabeller:
 
@@ -25,7 +24,9 @@ class GoalLabeller:
             self.next_comm += 1
         return self.comm_dict[comm]
 
-
+    def MakeTag(self, tag, comm):
+        """ Combine the user tag and the comm tag portion """
+        return tag * 1000 + comm
 
 class GoalOp:
 
@@ -44,11 +45,11 @@ class GoalSend(GoalOp):
         self.tag = tag
         self.size = size
 
-    def write_goal(self, labeller, fh):
+    def write_goal(self, labeller, fh, comm, basecomm):
         fh.write("l{label}: send {size}b to {dst} tag {tag}\n".format(label=labeller.GetLabel(self), 
                                                                      size=str(self.size), 
-                                                                     dst=str(self.dst),
-                                                                     tag=str(self.tag)))
+                                                                     dst=str(comm.TranslateRank(self.dst, basecomm)),
+                                                                     tag=str(labeller.MakeTag(self.tag, labeller.GetCommID(comm)))))
 
 class GoalRecv(GoalOp):
 
@@ -58,11 +59,11 @@ class GoalRecv(GoalOp):
         self.tag = tag
         self.size = size
 
-    def write_goal(self, labeller, fh):
+    def write_goal(self, labeller, fh, comm, basecomm):
         fh.write("l{label}: recv {size}b from {src} tag {tag}\n".format(label=labeller.GetLabel(self), 
                                                                        size=str(self.size), 
-                                                                       src=str(self.src),
-                                                                       tag=str(self.tag)))
+                                                                       src=str(comm.TranslateRank(self.src, basecomm)),
+                                                                       tag=str(labeller.MakeTag(self.tag, labeller.GetCommID(comm)))))
 
 class GoalCalc(GoalOp):
 
@@ -70,7 +71,7 @@ class GoalCalc(GoalOp):
         super().__init__()
         self.size = size
 
-    def write_goal(self, fh):
+    def write_goal(self, labeller, fh, comm, basecomm):
         fh.write("l{label}: calc {size}\n".format(label=labeller.GetLabel(self), size=str(self.size)))
 
 
@@ -93,14 +94,20 @@ class GoalRank:
         self.ops.append(op)
         return op
 
-    def write_goal(self, labeller, fh):
-        fh.write("rank "+str(self.rank)+" {\n")
+    def write_goal(self, labeller, fh, rankid=True, basecomm=None):
+        if basecomm is None:
+            basecomm = self.comm # stupid python evals default args at method definition, not call time :(
+        if rankid:
+            fh.write("rank "+str(self.rank)+" {\n")
         for op in self.ops:
-            op.write_goal(labeller, fh)
+            op.write_goal(labeller, fh, self.comm, basecomm)
         for op in self.ops:
             for req in op.depends_on:
                 fh.write("l{label1} requires l{label2}\n".format(label1=labeller.GetLabel(op), label2=labeller.GetLabel(req)))
-        fh.write("}\n\n")
+        for sc in self.comm.subcomms:
+            sc.write_goal_subcomm(labeller, fh, self.rank, basecomm)
+        if rankid:
+            fh.write("}\n\n")
 
 
 class GoalComm:
@@ -125,9 +132,14 @@ class GoalComm:
             raise ValueError("The length of color and key array must match the communicator size.")
         newcomms = []
         order = [ (oldrank, color[oldrank], key[oldrank]) for oldrank in range(0, self.comm_size) ]
-        b = bucket(order, key=lambda x: x[1]) # split by color
-        for c in list(b):
-            c_list = sorted(list(b[c]), key=lambda x: x[2]) # sort by key within color
+        color_buckets = {}
+        for o in order:
+            if o[1] in color_buckets:
+                color_buckets[o[1]].append(o)
+            else:
+                color_buckets[o[1]]=[o]
+        for c in color_buckets.keys():
+            c_list = sorted(color_buckets[c], key=lambda x: x[2]) # sort by key within color
             nc = GoalComm(len(c_list))
             nc.base_comm = self
             for idx, r in enumerate(nc):
@@ -141,8 +153,21 @@ class GoalComm:
         if labeller is None:
             labeller = GoalLabeller()
         for r in self.ranks:
-            r.write_goal(labeller, fh)
+            r.write_goal(labeller, fh, rankid=True, basecomm=self)
 
+    def write_goal_subcomm(self, labeller, fh, rank, basecomm):
+        """ if this comm has a rank with base_rank=rank, print its goal ops without enclosing brackets """
+        for r in self.ranks:
+            if r.base_rank == rank:
+                r.write_goal(labeller, fh, rankid=False, basecomm=basecomm)
+
+    def TranslateRank(self, rank, basecomm):
+        """ Find out the rank id of the given rank (in self) in basecomm """
+        if self == basecomm:
+            return rank
+        if rank == None:
+            raise ValueError("Attempt to translate a non-existing rank!")
+        return self.base_comm.TranslateRank(self.ranks[rank].base_rank, basecomm)
 
 if __name__ == "__main__":
     
