@@ -31,10 +31,11 @@ def dissemination(comm_size, datasize, tag):
     comm = GoalComm(comm_size)
     for rank in range(0, comm_size):
         dist = 1
+        recv = None
         while (dist < comm_size):
             send = comm.Send(src=rank, dst=(rank+dist+comm_size)%comm_size, size=datasize, tag=tag)
-            if revc is not None:
+            if recv is not None:
                 send.requires(recv)
-            recv - comm.Recv(src=(rank-dist+comm_size)%comm_size, dst=rank, size=datasize, tag=tag)
+            recv = comm.Recv(src=(rank-dist+comm_size)%comm_size, dst=rank, size=datasize, tag=tag)
             dist *= 2
     return comm	
