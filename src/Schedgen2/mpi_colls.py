@@ -127,21 +127,22 @@ def ring_allreduce(comm, comm_size, datasize, base_tag, ctd=0):
             last_dependency=dependency,
             compute_time_dependency=ctd,
         )
-    return comm
 
 
 def allreduce(algorithm, comm_size, datasize, base_tag, ctd=0, **kwargs):
     comm = GoalComm(comm_size)
     if algorithm == "ring":
-        return ring_allreduce(comm, comm_size, datasize, base_tag, ctd)
+        ring_allreduce(comm, comm_size, datasize, base_tag, ctd)
     elif algorithm == "recdoub":
-        return recdoub_allreduce(comm, comm_size, datasize, base_tag, ctd)
+        recdoub_allreduce(comm, comm_size, datasize, base_tag, ctd)
     elif algorithm == "datasize_based":
         if datasize < 4096:
-            return recdoub_allreduce(comm, comm_size, datasize, base_tag, ctd)
-        return ring_allreduce(comm, comm_size, datasize, base_tag, ctd)
+            recdoub_allreduce(comm, comm_size, datasize, base_tag, ctd)
+        else:
+            ring_allreduce(comm, comm_size, datasize, base_tag, ctd)
     else:
         raise ValueError(f"allreduce algorithm {algorithm} not implemented")
+    return comm
 
 
 def multi_allreduce(
@@ -154,3 +155,4 @@ def multi_allreduce(
     )
     for comm in comms:
         allreduce(algorithm, comm.CommSize(), datasize, base_tag, ctd, **kwargs)
+    return comm
