@@ -229,3 +229,29 @@ def multi_alltoall(algorithm, num_comm_groups, comm_size, **kwargs):
     for comm_split in comms:
         alltoall(algorithm, comm_split.CommSize(), **kwargs)
     return comm
+
+
+def incast(comm_size, unbalanced, datasize, tag, **kwargs):
+    comm = GoalComm(comm_size)
+    for src in range(1, comm_size):
+        size = (
+            datasize + int(0.1 * random.randint(-datasize, datasize))
+            if unbalanced
+            else datasize
+        )
+        comm.Send(src=src, dst=0, size=size, tag=tag)
+        comm.Recv(src=src, dst=0, size=size, tag=tag)
+    return comm
+
+
+def outcast(comm_size, unbalanced, datasize, tag, **kwargs):
+    comm = GoalComm(comm_size)
+    for dst in range(1, comm_size):
+        size = (
+            datasize + int(0.1 * random.randint(-datasize, datasize))
+            if unbalanced
+            else datasize
+        )
+        comm.Send(src=0, dst=dst, size=size, tag=tag)
+        comm.Recv(src=0, dst=dst, size=size, tag=tag)
+    return comm

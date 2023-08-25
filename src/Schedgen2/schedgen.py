@@ -11,6 +11,19 @@ subparsers = parser.add_subparsers(
 simple_patterns = []
 multi_patterns = []
 
+incast_parser = subparsers.add_parser("incast")
+simple_patterns.append(incast_parser)
+
+outcast_parser = subparsers.add_parser("outcast")
+simple_patterns.append(outcast_parser)
+
+for p in [incast_parser, outcast_parser]:
+    p.add_argument(
+        "--unbalanced",
+        dest="unbalanced",
+        action="store_true",
+        help="Use unbalanced incast/outcast",
+    )
 binomialtreereduce_parser = subparsers.add_parser("binomialtreereduce")
 simple_patterns.append(binomialtreereduce_parser)
 
@@ -128,6 +141,10 @@ elif args.ptrn == "alltoall":
     g = alltoall(tag=42, **vars(args))
 elif args.ptrn == "multi_alltoall":
     g = multi_alltoall(tag=42, **vars(args))
+elif args.ptrn == "incast":
+    g = incast(tag=42, **vars(args))
+elif args.ptrn == "outcast":
+    g = outcast(tag=42, **vars(args))
 
 g.write_goal(fh=args.output)
 if args.output != sys.stdout:
