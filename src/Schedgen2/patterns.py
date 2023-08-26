@@ -7,6 +7,7 @@ def _prepare_send_recv_data(
     destinations: Union[int, List[int]],
     data_sizes_receive: Union[int, List[int]],
     data_sizes_send: Union[int, List[int]],
+    tags: Union[int, List[int]],
 ):
     if isinstance(sources, int) and isinstance(destinations, int):
         sources = [sources]
@@ -28,7 +29,10 @@ def _prepare_send_recv_data(
     assert len(data_sizes_send) == len(
         destinations
     ), "data_sizes_send and destinations must be the same length"
-    return sources, destinations, data_sizes_receive, data_sizes_send
+    if isinstance(tags, int):
+        tags = [tags] * len(sources)
+    assert len(tags) == len(sources), "tags and sources must be the same length"
+    return sources, destinations, data_sizes_receive, data_sizes_send, tags
 
 
 def iterative_send_recv(
@@ -38,7 +42,7 @@ def iterative_send_recv(
     destinations: Union[int, List[int]],
     data_sizes_receive: Union[int, List[int]],
     data_sizes_send: Union[int, List[int]],
-    tag,
+    tags: Union[int, List[int]],
     last_dependency: GoalOp = None,
     compute_time_dependency=0,
 ) -> GoalOp:
@@ -51,7 +55,7 @@ def iterative_send_recv(
     :param destinations: rank(s) to send data to
     :param data_sizes_receive: size(s) of data to receive from sources
     :param data_sizes_send: size(s) of data to send to destinations
-    :param tag: tag to use for send and receive operations
+    :param tags: tags to use for send and receive operations
     :param last_dependency: last operation in a previous chain of operations to depend on
     :param compute_time_dependency: time to compute before sending data.
         If 0 (default), no compute time is added and the send operation is dependent on the receive operation.
@@ -59,9 +63,9 @@ def iterative_send_recv(
     """
     dependency = last_dependency
 
-    for source, destination, data_size_receive, data_size_send in zip(
+    for source, destination, data_size_receive, data_size_send, tag in zip(
         *_prepare_send_recv_data(
-            sources, destinations, data_sizes_receive, data_sizes_send
+            sources, destinations, data_sizes_receive, data_sizes_send, tags
         )
     ):
         send = goal_comm.Send(src=rank, dst=destination, size=data_size_send, tag=tag)
@@ -83,7 +87,7 @@ def windowed_send_recv(
     data_sizes_receive: Union[int, List[int]],
     data_sizes_send: Union[int, List[int]],
     window_size: int,
-    tag,
+    tags: Union[int, List[int]],
     last_dependencies: List[GoalOp] = None,
 ):
     """
@@ -96,7 +100,7 @@ def windowed_send_recv(
     :param data_sizes_receive: size(s) of data to receive from sources
     :param data_sizes_send: size(s) of data to send to destinations
     :param window_size: number of operations that can be in flight at once
-    :param tag: tag to use for send and receive operations
+    :param tags: tags to use for send and receive operations
     :param last_dependencies: last operations in a previous chain of operations to depend on
     """
     assert (
@@ -105,10 +109,10 @@ def windowed_send_recv(
 
     window = last_dependencies or [None] * window_size
 
-    for i, (source, destination, data_size_receive, data_size_send) in enumerate(
+    for i, (source, destination, data_size_receive, data_size_send, tag) in enumerate(
         zip(
             *_prepare_send_recv_data(
-                sources, destinations, data_sizes_receive, data_sizes_send
+                sources, destinations, data_sizes_receive, data_sizes_send, tags
             )
         )
     ):
@@ -128,7 +132,7 @@ def parallel_send_recv(
     destinations: Union[int, List[int]],
     data_sizes_receive: Union[int, List[int]],
     data_sizes_send: Union[int, List[int]],
-    tag,
+    tags: Union[int, List[int]],
 ):
     """
     Receive data from sources at rank and send data from rank to destinations without dependencies.
@@ -139,11 +143,11 @@ def parallel_send_recv(
     :param destinations: rank(s) to send data to
     :param data_sizes_receive: size(s) of data to receive from sources
     :param data_sizes_send: size(s) of data to send to destinations
-    :param tag: tag to use for send and receive operations
+    :param tags: tags to use for send and receive operations
     """
-    for source, destination, data_size_receive, data_size_send in zip(
+    for source, destination, data_size_receive, data_size_send, tag in zip(
         *_prepare_send_recv_data(
-            sources, destinations, data_sizes_receive, data_sizes_send
+            sources, destinations, data_sizes_receive, data_sizes_send, tags
         )
     ):
         goal_comm.Send(src=rank, dst=destination, size=data_size_send, tag=tag)
