@@ -81,7 +81,7 @@ for p in [
 
 for p in simple_patterns + multi_patterns:
     p.add_argument(
-        "--commsize",
+        "--comm_size",
         dest="comm_size",
         type=int,
         default=8,

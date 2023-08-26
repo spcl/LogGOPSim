@@ -1,0 +1,8 @@
+{
+    "ptrn": "allreduce",
+    "algotithm": "ring",
+    "comm_size": 16,
+    "datasize": 1024,
+    "output": "allreduce_ring_16_1024.bin",
+    "txt2bin": "../../build/txt2bin"
+}
