@@ -1,5 +1,7 @@
 import sys
 import json
+import tempfile
+import subprocess
 import argparse
 from mpi_colls import *
 
@@ -48,8 +50,6 @@ multi_patterns.append(multi_alltoall_parser)
 for p in [
     allreduce_parser,
     multi_allreduce_parser,
-    alltoall_parser,
-    multi_alltoall_parser,
 ]:
     p.add_argument(
         "--algorithm",
@@ -58,14 +58,26 @@ for p in [
             "ring",
             "recdoub",
             "datasize_based",
+        ],
+        default="datasize_based",
+        help="Algorithm to use for allreduce",
+    )
+
+for p in [
+    alltoall_parser,
+    multi_alltoall_parser,
+]:
+    p.add_argument(
+        "--algorithm",
+        dest="algorithm",
+        choices=[
             "windowed",
             "balanced",
             "unbalanced",
         ],
         default="datasize_based",
-        help="Algorithm to use for allreduce/alltoall",
+        help="Algorithm to use for alltoall",
     )
-
 
 for p in simple_patterns + multi_patterns:
     p.add_argument(
@@ -94,6 +106,11 @@ for p in simple_patterns + multi_patterns:
         dest="config",
         help="Configuration file, takes precedence over other parameters",
     )
+    p.add_argument(
+        "--txt2bin",
+        dest="txt2bin",
+        help="Path to txt2bin executable",
+    )
 
 for p in multi_patterns:
     p.add_argument(
@@ -110,6 +127,9 @@ def verify_params(args):
         return
     assert args.comm_size > 0, "Communicator size must be greater than 0."
     assert args.datasize > 0, "Data size must be greater than 0."
+    assert (
+        args.txt2bin is None or args.output != "stdout"
+    ), "Cannot use txt2bin with stdout"
 
 
 args = parser.parse_args()
@@ -122,11 +142,6 @@ if args.config is not None:
 
 verify_params(args)
 
-if args.output == "stdout":
-    args.output = sys.stdout
-else:
-    args.output = open(args.output, "w")
-
 if args.ptrn == "binomialtreereduce":
     g = binomialtree(args.comm_size, args.datasize, 42, "reduce")
 elif args.ptrn == "binomialtreebcast":
@@ -134,9 +149,9 @@ elif args.ptrn == "binomialtreebcast":
 elif args.ptrn == "dissemination":
     g = dissemination(args.comm_size, args.datasize, 42)
 elif args.ptrn == "allreduce":
-    g = allreduce(base_tag=42, **vars(args))
+    g = allreduce(tag=42, **vars(args))
 elif args.ptrn == "multi_allreduce":
-    g = multi_allreduce(base_tag=42, **vars(args))
+    g = multi_allreduce(tag=42, **vars(args))
 elif args.ptrn == "alltoall":
     g = alltoall(tag=42, **vars(args))
 elif args.ptrn == "multi_alltoall":
@@ -146,6 +161,22 @@ elif args.ptrn == "incast":
 elif args.ptrn == "outcast":
     g = outcast(tag=42, **vars(args))
 
-g.write_goal(fh=args.output)
-if args.output != sys.stdout:
-    args.output.close()
+if args.txt2bin is not None:
+    assert args.output != "stdout", "Cannot use txt2bin with stdout"
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+        g.write_goal(fh=f)
+        tmp_goal_file = f.name
+    subprocess.run(
+        [args.txt2bin, "-i", tmp_goal_file, "-o", args.output, "-p"],
+        check=True,
+    )
+    subprocess.run(["rm", tmp_goal_file], check=True)
+else:
+    if args.output == "stdout":
+        args.output = sys.stdout
+    else:
+        args.output = open(args.output, "w")
+
+    g.write_goal(fh=args.output)
+    if args.output != sys.stdout:
+        args.output.close()
