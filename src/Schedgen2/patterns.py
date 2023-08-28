@@ -1,80 +1,65 @@
-from math import ceil, log2
-from goal import GoalComm
+from typing import List, Union
+from goal import GoalComm, GoalOp
 
 
-def binomialtree(comm_size, datasize, tag, dir="reduce"):
-    comm = GoalComm(comm_size)
-    for rank in range(0, comm_size):
-        send = None
-        recv = None
-        for r in range(0, ceil(log2(comm_size))):
-            peer = rank + pow(2, r)
-            if (rank + pow(2, r) < comm_size) and (rank < pow(2, r)):
-                if dir == "reduce":
-                    recv = comm.Recv(size=datasize, src=peer, dst=rank, tag=tag)
-                elif dir == "bcast":
-                    send = comm.Send(size=datasize, dst=peer, src=rank, tag=tag)
-                else:
-                    raise ValueError(
-                        "direction " + str(dir) + " in binomialtree not implemented."
-                    )
-            if (send is not None) and (recv is not None):
-                send.requires(recv)
-            peer = rank - pow(2, r)
-            if (rank >= pow(2, r)) and (rank < pow(2, r + 1)):
-                if dir == "reduce":
-                    send = comm.Send(size=datasize, dst=peer, src=rank, tag=tag)
-                if dir == "bcast":
-                    recv = comm.Recv(size=datasize, src=peer, dst=rank, tag=tag)
+def iterative_send_recv(
+    goal_comm: GoalComm,
+    rank: int,
+    sources: Union[int, List[int]],
+    destinations: Union[int, List[int]],
+    data_sizes_receive: Union[int, List[int]],
+    data_sizes_send: Union[int, List[int]],
+    tag,
+    last_dependency: GoalOp = None,
+    compute_time_dependency=0,
+):
+    """
+    Receive data from sources at rank and send data from rank to destinations.
 
-    return comm
+    :param goal_comm: GoalComm object that contains the ranks
+    :param rank: rank to receive data at from sources and send data to destinations
+    :param sources: rank(s) to receive data from
+    :param destinations: rank(s) to send data to
+    :param data_sizes_receive: size(s) of data to receive from sources
+    :param data_sizes_send: size(s) of data to send to destinations
+    :param tag: tag to use for send and receive operations
+    :param last_dependency: last operation in a previous chain of operations to depend on
+    :param compute_time_dependency: time to compute before sending data.
+        If 0 (default), no compute time is added and the send operation is dependent on the receive operation.
+    :return: GoalOp object that represents the last operation in the chain
+    """
+    if isinstance(sources, int) and isinstance(destinations, int):
+        sources = [sources]
+        destinations = [destinations]
+    elif isinstance(sources, int):
+        sources = [sources] * len(destinations)
+    elif isinstance(destinations, int):
+        destinations = [destinations] * len(sources)
+    assert len(sources) == len(
+        destinations
+    ), "sources and destinations must be the same length"
+    if isinstance(data_sizes_receive, int):
+        data_sizes_receive = [data_sizes_receive] * len(sources)
+    if isinstance(data_sizes_send, int):
+        data_sizes_send = [data_sizes_send] * len(destinations)
+    assert len(data_sizes_receive) == len(
+        sources
+    ), "data_sizes_receive and sources must be the same length"
+    assert len(data_sizes_send) == len(
+        destinations
+    ), "data_sizes_send and destinations must be the same length"
 
+    dependency = last_dependency
 
-def dissemination(comm_size, datasize, tag):
-    comm = GoalComm(comm_size)
-    for rank in range(0, comm_size):
-        dist = 1
-        recv = None
-        while dist < comm_size:
-            send = comm.Send(
-                src=rank,
-                dst=(rank + dist + comm_size) % comm_size,
-                size=datasize,
-                tag=tag,
-            )
-            if recv is not None:
-                send.requires(recv)
-            recv = comm.Recv(
-                src=(rank - dist + comm_size) % comm_size,
-                dst=rank,
-                size=datasize,
-                tag=tag,
-            )
-            dist *= 2
-    return comm
-
-
-def ring_allreduce(comm_size, datasize, base_tag):
-    comm = GoalComm(comm_size)
-    for rank in range(0, comm_size):
-        recv = None
-        send = None
-        chunk_size = (
-            datasize // comm_size
-            if datasize % comm_size == 0
-            else datasize // comm_size + 1
+    for source, destination, data_size_receive, data_size_send in zip(
+        sources, destinations, data_sizes_receive, data_sizes_send
+    ):
+        send = goal_comm.Send(src=rank, dst=destination, size=data_size_send, tag=tag)
+        if dependency is not None:
+            send.requires(dependency)
+        dependency = goal_comm.Recv(
+            src=source, dst=rank, size=data_size_receive, tag=tag
         )
-        for _ in range(2):
-            # Phase 0: reduce-scatter, Phase 1: allgather
-            for _ in range(0, comm_size - 1):
-                send = comm.Send(
-                    src=rank, dst=(rank + 1) % comm_size, size=chunk_size, tag=base_tag
-                )
-                if recv is not None:
-                    send.requires(recv)
-                recv = comm.Recv(
-                    src=(rank - 1) % comm_size, dst=rank, size=chunk_size, tag=base_tag
-                )
-            # update tag for next phase
-            base_tag += 1
-    return comm
+        if compute_time_dependency > 0:
+            dependency = goal_comm.Calc(host=rank, size=compute_time_dependency)
+    return dependency
