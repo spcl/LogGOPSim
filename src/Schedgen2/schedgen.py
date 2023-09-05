@@ -1,7 +1,7 @@
 import sys
 import json
 import argparse
-from mpi_colls import binomialtree, dissemination, allreduce, multi_allreduce
+from mpi_colls import *
 
 parser = argparse.ArgumentParser(description="Generate GOAL Schedules.")
 
@@ -11,6 +11,19 @@ subparsers = parser.add_subparsers(
 simple_patterns = []
 multi_patterns = []
 
+incast_parser = subparsers.add_parser("incast")
+simple_patterns.append(incast_parser)
+
+outcast_parser = subparsers.add_parser("outcast")
+simple_patterns.append(outcast_parser)
+
+for p in [incast_parser, outcast_parser]:
+    p.add_argument(
+        "--unbalanced",
+        dest="unbalanced",
+        action="store_true",
+        help="Use unbalanced incast/outcast",
+    )
 binomialtreereduce_parser = subparsers.add_parser("binomialtreereduce")
 simple_patterns.append(binomialtreereduce_parser)
 
@@ -26,14 +39,33 @@ simple_patterns.append(allreduce_parser)
 multi_allreduce_parser = subparsers.add_parser("multi_allreduce")
 multi_patterns.append(multi_allreduce_parser)
 
-for allr in [allreduce_parser, multi_allreduce_parser]:
-    allr.add_argument(
+alltoall_parser = subparsers.add_parser("alltoall")
+simple_patterns.append(alltoall_parser)
+
+multi_alltoall_parser = subparsers.add_parser("multi_alltoall")
+multi_patterns.append(multi_alltoall_parser)
+
+for p in [
+    allreduce_parser,
+    multi_allreduce_parser,
+    alltoall_parser,
+    multi_alltoall_parser,
+]:
+    p.add_argument(
         "--algorithm",
         dest="algorithm",
-        choices=["ring", "recdoub", "datasize_based"],
+        choices=[
+            "ring",
+            "recdoub",
+            "datasize_based",
+            "windowed",
+            "balanced",
+            "unbalanced",
+        ],
         default="datasize_based",
-        help="Algorithm to use for allreduce",
+        help="Algorithm to use for allreduce/alltoall",
     )
+
 
 for p in simple_patterns + multi_patterns:
     p.add_argument(
@@ -105,6 +137,14 @@ elif args.ptrn == "allreduce":
     g = allreduce(base_tag=42, **vars(args))
 elif args.ptrn == "multi_allreduce":
     g = multi_allreduce(base_tag=42, **vars(args))
+elif args.ptrn == "alltoall":
+    g = alltoall(tag=42, **vars(args))
+elif args.ptrn == "multi_alltoall":
+    g = multi_alltoall(tag=42, **vars(args))
+elif args.ptrn == "incast":
+    g = incast(tag=42, **vars(args))
+elif args.ptrn == "outcast":
+    g = outcast(tag=42, **vars(args))
 
 g.write_goal(fh=args.output)
 if args.output != sys.stdout:
