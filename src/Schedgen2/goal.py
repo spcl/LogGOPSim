@@ -113,6 +113,33 @@ class GoalRank:
         self.ops.append(op)
         return op
 
+    def Merge(self, mrank):
+        self.ops += mrank.ops
+
+    def Append(self, arank):
+        c = self.Calc(0)
+        for l in self.LastOps():
+            if l == c:
+                pass
+            else:
+                c.requires(l)
+        self.ops += arank.ops
+        for i in arank.IndepOps():
+            i.requires(c) 
+
+    def IndepOps(self):
+        res = [x for x in self.ops if (len(x.depends_on) == 0)]
+        return res
+
+    def LastOps(self):
+        rem = []
+        for x in self.ops:
+            for d in x.depends_on:
+                rem.append(d)
+        s = set(rem)
+        res = [x for x in self.ops if x not in s]
+        return res
+
     def write_goal(self, labeller, fh, rankid=True, basecomm=None):
         if basecomm is None:
             basecomm = (
@@ -144,6 +171,24 @@ class GoalComm:
 
     def __getitem__(self, index):
         return self.ranks[index]
+
+    def Append(self, comm):
+        """Append comm to self, such that when all ops in self are finished, those in comm can start."""
+        if comm.CommSize() > self.CommSize():
+            raise ValueError("Cannot append a larger comm to a smaller one!")
+        if len(comm.subcomms) > 0:
+            raise ValueError("Cannot append a comm with subcomms, flatten first?")
+        for idx, rank in enumerate(self.ranks):
+            rank.Append(comm[idx])
+
+    def Merge(self, comm):
+        """Merge comm into self, such that the ops in both run in parallel."""
+        if comm.CommSize() > self.CommSize():
+            raise "Cannot merge a larger comm to a smaller one!"
+        if len(comm.subcomms) > 0:
+            raise ValueError("Cannot append a comm with subcomms, flatten first?")
+        for idx, rank in enumerate(self.ranks):
+            rank.Merge(comm[idx])
 
     def Send(self, src, dst, tag, size):
         return self[src].Send(dst, tag, size)
@@ -210,13 +255,12 @@ class GoalComm:
 
 
 if __name__ == "__main__":
-    comm_world = GoalComm(4)
-    comms = comm_world.CommSplit(color=[0, 0, 1, 1], key=[0, 1, 2, 3])
-    comms[0][0].Send(1, 42, 32)
-    comms[0][1].Recv(0, 42, 32)
-    comms[1][1].Send(0, 42, 16)
-    comms[1][0].Recv(1, 42, 16)
-    comms[1][0].Calc(23)
+    comms = [ GoalComm(4), GoalComm(4) ]
+    for c in comms:
+        for i in range(1, c.CommSize()):
+            c[0].Send(dst=i, tag=42, size=23)
+        for i in range(1, c.CommSize()):
+            c[i].Recv(src=0, tag=42, size=23)
+        c.write_goal()
+    comms[0].Append(comms[1])
     comms[0].write_goal()
-    comms[1].write_goal()
-    comm_world.write_goal()
