@@ -8,78 +8,67 @@ from mpi_colls import *
 parser = argparse.ArgumentParser(description="Generate GOAL Schedules.")
 
 subparsers = parser.add_subparsers(
-    help="Pattern to generate", dest="ptrn", required=True
+    help="Communication to generate", dest="comm", required=True
 )
-simple_patterns = []
-multi_patterns = []
+mpi = []
 
 incast_parser = subparsers.add_parser("incast")
-simple_patterns.append(incast_parser)
+mpi.append(incast_parser)
 
 outcast_parser = subparsers.add_parser("outcast")
-simple_patterns.append(outcast_parser)
+mpi.append(outcast_parser)
 
-for p in [incast_parser, outcast_parser]:
+reduce_parser = subparsers.add_parser("reduce")
+mpi.append(reduce_parser)
+
+bcast_parser = subparsers.add_parser("bcast")
+mpi.append(bcast_parser)
+
+dissemination_parser = subparsers.add_parser("dissemination")
+mpi.append(dissemination_parser)
+
+allreduce_parser = subparsers.add_parser("allreduce")
+mpi.append(allreduce_parser)
+
+alltoall_parser = subparsers.add_parser("alltoall")
+mpi.append(alltoall_parser)
+
+for p in ["incast", "outcast", "alltoall"]:
     p.add_argument(
         "--unbalanced",
         dest="unbalanced",
         action="store_true",
-        help="Use unbalanced incast/outcast",
+        help="Use unbalanced data sizes",
     )
-binomialtreereduce_parser = subparsers.add_parser("binomialtreereduce")
-simple_patterns.append(binomialtreereduce_parser)
 
-binomialtreebcast_parser = subparsers.add_parser("binomialtreebcast")
-simple_patterns.append(binomialtreebcast_parser)
-
-dissemination_parser = subparsers.add_parser("dissemination")
-simple_patterns.append(dissemination_parser)
-
-allreduce_parser = subparsers.add_parser("allreduce")
-simple_patterns.append(allreduce_parser)
-
-multi_allreduce_parser = subparsers.add_parser("multi_allreduce")
-multi_patterns.append(multi_allreduce_parser)
-
-alltoall_parser = subparsers.add_parser("alltoall")
-simple_patterns.append(alltoall_parser)
-
-multi_alltoall_parser = subparsers.add_parser("multi_alltoall")
-multi_patterns.append(multi_alltoall_parser)
-
-for p in [
-    allreduce_parser,
-    multi_allreduce_parser,
-]:
+for p in ["allreduce", "alltoall"]:
     p.add_argument(
-        "--algorithm",
-        dest="algorithm",
+        "--num_comm_groups",
+        dest="num_comm_groups",
+        type=int,
+        required=True,
+        help="Number of communication groups",
+    )
+
+for p in mpi:
+    p.add_argument(
+        "--ptrn",
+        dest="ptrn",
         choices=[
-            "ring",
-            "recdoub",
             "datasize_based",
+            "binomialtree",
+            "recdoub",
+            "ring",
+            "linear"
         ],
         default="datasize_based",
-        help="Algorithm to use for allreduce",
+        help="Pattern to use for communication, note that not all patterns are available for all communication types",
     )
-
-for p in [
-    alltoall_parser,
-    multi_alltoall_parser,
-]:
     p.add_argument(
-        "--algorithm",
-        dest="algorithm",
-        choices=[
-            "windowed",
-            "balanced",
-            "unbalanced",
-        ],
-        default="datasize_based",
-        help="Algorithm to use for alltoall",
+        "--ptrn-config",
+        dest="ptrn_config",
+        help="Configuration file for the pattern to use with data size based selection to override the default configuration",
     )
-
-for p in simple_patterns + multi_patterns:
     p.add_argument(
         "--comm_size",
         dest="comm_size",
@@ -94,7 +83,12 @@ for p in simple_patterns + multi_patterns:
         default=8,
         help="Size of the data, i.e., for reduce operations",
     )
-    p.add_argument("--output", dest="output", default="stdout", help="Output file")
+    p.add_argument(
+        "--output", 
+        dest="output", 
+        default="stdout", 
+        help="Output file",
+    )
     p.add_argument(
         "--ignore_verification",
         dest="ignore_verification",
@@ -112,15 +106,6 @@ for p in simple_patterns + multi_patterns:
         help="Path to txt2bin executable",
     )
 
-for p in multi_patterns:
-    p.add_argument(
-        "--num_comm_groups",
-        dest="num_comm_groups",
-        type=int,
-        required=True,
-        help="Number of communication groups",
-    )
-
 
 def verify_params(args):
     if args.ignore_verification:
@@ -130,6 +115,9 @@ def verify_params(args):
     assert (
         args.txt2bin is None or args.output != "stdout"
     ), "Cannot use txt2bin with stdout"
+
+def communication_pattern_selection(args):
+    # check if 
 
 
 args = parser.parse_args()

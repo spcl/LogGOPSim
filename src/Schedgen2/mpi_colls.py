@@ -5,35 +5,8 @@ from goal import GoalComm
 from patterns import iterative_send_recv, parallel_send_recv, windowed_send_recv
 
 
-def binomialtree(comm_size, datasize, tag, dir="reduce"):
-    comm = GoalComm(comm_size)
-    for rank in range(0, comm_size):
-        send = None
-        recv = None
-        for r in range(0, ceil(log2(comm_size))):
-            peer = rank + pow(2, r)
-            if (rank + pow(2, r) < comm_size) and (rank < pow(2, r)):
-                if dir == "reduce":
-                    recv = comm.Recv(size=datasize, src=peer, dst=rank, tag=tag)
-                elif dir == "bcast":
-                    send = comm.Send(size=datasize, dst=peer, src=rank, tag=tag)
-                else:
-                    raise ValueError(
-                        "direction " + str(dir) + " in binomialtree not implemented."
-                    )
-            if (send is not None) and (recv is not None):
-                send.requires(recv)
-            peer = rank - pow(2, r)
-            if (rank >= pow(2, r)) and (rank < pow(2, r + 1)):
-                if dir == "reduce":
-                    send = comm.Send(size=datasize, dst=peer, src=rank, tag=tag)
-                if dir == "bcast":
-                    recv = comm.Recv(size=datasize, src=peer, dst=rank, tag=tag)
-
-    return comm
-
-
 def dissemination(comm_size, datasize, tag):
+    #TODO: select or implement right pattern
     comm = GoalComm(comm_size)
     for rank in range(0, comm_size):
         dist = 1
