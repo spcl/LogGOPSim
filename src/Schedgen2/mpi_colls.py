@@ -1,7 +1,8 @@
 from math import log2, ceil
+import random
 
 from goal import GoalComm
-from patterns import iterative_send_recv
+from patterns import iterative_send_recv, parallel_send_recv, windowed_send_recv
 
 
 def binomialtree(comm_size, datasize, tag, dir="reduce"):
@@ -145,14 +146,86 @@ def allreduce(algorithm, comm_size, datasize, base_tag, ctd=0, **kwargs):
     return comm
 
 
-def multi_allreduce(
-    algorithm, num_comm_groups, comm_size, datasize, base_tag, ctd=0, **kwargs
-):
+def multi_allreduce(algorithm, num_comm_groups, comm_size, **kwargs):
     comm = GoalComm(comm_size * num_comm_groups)
     comms = comm.CommSplit(
         color=[i // comm_size for i in range(comm_size * num_comm_groups)],
         key=[i % comm_size for i in range(comm_size * num_comm_groups)],
     )
-    for comm in comms:
-        allreduce(algorithm, comm.CommSize(), datasize, base_tag, ctd, **kwargs)
+    for comm_split in comms:
+        allreduce(algorithm, comm_split.CommSize(), **kwargs)
+    return comm
+
+
+def windowed_alltoall(comm, window_size, comm_size, datasize, tag, **kwargs):
+    for rank in range(0, comm_size):
+        sources = [(rank - step) % comm_size for step in range(1, comm_size)]
+        destination = [(rank + step) % comm_size for step in range(1, comm_size)]
+        data_sizes_receive = [datasize] * (comm_size - 1)
+        data_sizes_send = [datasize] * (comm_size - 1)
+
+        windowed_send_recv(
+            comm,
+            rank,
+            sources,
+            destination,
+            data_sizes_receive,
+            data_sizes_send,
+            window_size,
+            tag,
+        )
+
+
+def balanced_alltoall(comm, comm_size, datasize, tag, **kwargs):
+    for rank in range(0, comm_size):
+        sources = [(rank - step) % comm_size for step in range(1, comm_size)]
+        destination = [(rank + step) % comm_size for step in range(1, comm_size)]
+        data_sizes_receive = [datasize] * (comm_size - 1)
+        data_sizes_send = [datasize] * (comm_size - 1)
+
+        parallel_send_recv(
+            comm, rank, sources, destination, data_sizes_receive, data_sizes_send, tag
+        )
+
+
+def unbalanced_alltoall(comm, comm_size, datasize, tag, **kwargs):
+    datasizes_randomized = [
+        [
+            datasize + int(0.1 * random.randint(-datasize, datasize))
+            for _ in range(comm_size)
+        ]
+        for _ in range(comm_size)
+    ]
+    for rank in range(0, comm_size):
+        sources = [(rank - step) % comm_size for step in range(1, comm_size)]
+        destination = [(rank + step) % comm_size for step in range(1, comm_size)]
+        data_sizes_receive = [datasizes_randomized[src][rank] for src in sources]
+        data_sizes_send = [datasizes_randomized[rank][dst] for dst in destination]
+
+        parallel_send_recv(
+            comm, rank, sources, destination, data_sizes_receive, data_sizes_send, tag
+        )
+
+
+def alltoall(algorithm, comm_size, **kwargs):
+    comm = GoalComm(comm_size)
+    if algorithm == "windowed":
+        windowed_alltoall(comm, comm_size, **kwargs)
+    elif algorithm == "balanced":
+        balanced_alltoall(comm, comm_size, **kwargs)
+    elif algorithm == "unbalanced":
+        unbalanced_alltoall(comm, comm_size, **kwargs)
+    else:
+        raise ValueError(f"alltoall algorithm {algorithm} not implemented")
+    return comm
+
+
+def multi_alltoall(algorithm, num_comm_groups, comm_size, **kwargs):
+    comm = GoalComm(comm_size * num_comm_groups)
+    comms = comm.CommSplit(
+        color=[i // comm_size for i in range(comm_size * num_comm_groups)],
+        key=[i % comm_size for i in range(comm_size * num_comm_groups)],
+    )
+    for comm_split in comms:
+        alltoall(algorithm, comm_split.CommSize(), **kwargs)
     return comm
