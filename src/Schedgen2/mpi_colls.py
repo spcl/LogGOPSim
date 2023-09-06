@@ -159,7 +159,7 @@ def multi_allreduce(algorithm, num_comm_groups, comm_size, **kwargs):
     return comm
 
 
-def windowed_alltoall(comm, window_size, comm_size, datasize, tag, **kwargs):
+def windowed_alltoall(comm, comm_size, window_size, datasize, tag, **kwargs):
     for rank in range(0, comm_size):
         sources = [(rank - step) % comm_size for step in range(1, comm_size)]
         destination = [(rank + step) % comm_size for step in range(1, comm_size)]

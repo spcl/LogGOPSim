@@ -78,6 +78,13 @@ for p in [
         default="datasize_based",
         help="Algorithm to use for alltoall",
     )
+    p.add_argument(
+        "--window_size",
+        dest="window_size",
+        type=int,
+        default=8,
+        help="Window size for windowed alltoall",
+    )
 
 for p in simple_patterns + multi_patterns:
     p.add_argument(
