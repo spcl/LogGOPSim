@@ -54,13 +54,7 @@ for p in mpi:
     p.add_argument(
         "--ptrn",
         dest="ptrn",
-        choices=[
-            "datasize_based",
-            "binomialtree",
-            "recdoub",
-            "ring",
-            "linear"
-        ],
+        choices=["datasize_based", "binomialtree", "recdoub", "ring", "linear"],
         default="datasize_based",
         help="Pattern to use for communication, note that not all patterns are available for all communication types",
     )
@@ -98,9 +92,9 @@ for p in mpi:
         help="Compute time that is to be inserted in between send operations",
     )
     p.add_argument(
-        "--output", 
-        dest="output", 
-        default="stdout", 
+        "--output",
+        dest="output",
+        default="stdout",
         help="Output file",
     )
     p.add_argument(
@@ -129,7 +123,10 @@ def verify_params(args):
     assert (
         args.txt2bin is None or args.output != "stdout"
     ), "Cannot use txt2bin with stdout"
-    assert args.ptrn != "recdoub" or args.comm_size & (args.comm_size - 1) == 0, "Currently recdoub pattern requires a power of 2 communicator size."
+    assert (
+        args.ptrn != "recdoub" or args.comm_size & (args.comm_size - 1) == 0
+    ), "Currently recdoub pattern requires a power of 2 communicator size."
+
 
 def communication_pattern_selection(args):
     if args.ptrn_config is not None and args.ptrn == "datasize_based":
@@ -156,15 +153,31 @@ def communication_pattern_selection(args):
             comm_size = args.comm_size
             datasize = args.datasize
             for c in config:
-                if "algorithm" in c and c["algorithm"] != "" and c["algorithm"] != args.comm:
+                if (
+                    "algorithm" in c
+                    and c["algorithm"] != ""
+                    and c["algorithm"] != args.comm
+                ):
                     continue
-                if c["lower_bounds"]["comm_size"] != -1 and comm_size < c["lower_bounds"]["comm_size"]:
+                if (
+                    c["lower_bounds"]["comm_size"] != -1
+                    and comm_size < c["lower_bounds"]["comm_size"]
+                ):
                     continue
-                if c["upper_bounds"]["comm_size"] != -1 and comm_size >= c["upper_bounds"]["comm_size"]:
+                if (
+                    c["upper_bounds"]["comm_size"] != -1
+                    and comm_size >= c["upper_bounds"]["comm_size"]
+                ):
                     continue
-                if c["lower_bounds"]["datasize"] != -1 and datasize < c["lower_bounds"]["datasize"]:
+                if (
+                    c["lower_bounds"]["datasize"] != -1
+                    and datasize < c["lower_bounds"]["datasize"]
+                ):
                     continue
-                if c["upper_bounds"]["datasize"] != -1 and datasize >= c["upper_bounds"]["datasize"]:
+                if (
+                    c["upper_bounds"]["datasize"] != -1
+                    and datasize >= c["upper_bounds"]["datasize"]
+                ):
                     continue
                 if c["lower_bounds"]["combined"] is not None:
                     for grad, intercept in c["lower_bounds"]["combined"]:
@@ -177,7 +190,9 @@ def communication_pattern_selection(args):
                 args.ptrn = c["ptrn"]
                 break
             if args.ptrn == "datasize_based":
-                raise ValueError(f"Cannot find a pattern for comm_size={comm_size} and datasize={datasize} according to the config file")
+                raise ValueError(
+                    f"Cannot find a pattern for comm_size={comm_size} and datasize={datasize} according to the config file"
+                )
     elif args.ptrn == "datasize_based":
         if args.comm == "incast":
             args.ptrn = "linear"
@@ -212,10 +227,11 @@ def communication_pattern_selection(args):
         # Pattern was specified by the user
         pass
 
+
 def comm_to_func(comm: str) -> callable:
     """
     Convert a communication type to a function that generates the communication.
-    
+
     :param comm: The communication type.
     :return: A function that generates the communication.
     """
@@ -237,6 +253,7 @@ def comm_to_func(comm: str) -> callable:
     else:
         raise ValueError(f"Communication type {comm} not implemented")
 
+
 args = parser.parse_args()
 if args.config is not None:
     with open(args.config, "r") as f:
@@ -248,10 +265,16 @@ communication_pattern_selection(args)
 verify_params(args)
 args.tag = 42
 
-if "num_comm_groups" not in vars(args) or args.num_comm_groups is None or args.num_comm_groups <= 1:
+if (
+    "num_comm_groups" not in vars(args)
+    or args.num_comm_groups is None
+    or args.num_comm_groups <= 1
+):
     g = comm_to_func(args.comm)(**vars(args))
 else:
-    g = multi(comm_to_func(args.comm), args.num_comm_groups, args.comm_size, **vars(args))
+    g = multi(
+        comm_to_func(args.comm), args.num_comm_groups, args.comm_size, **vars(args)
+    )
 
 if args.txt2bin is not None:
     assert args.output != "stdout", "Cannot use txt2bin with stdout"

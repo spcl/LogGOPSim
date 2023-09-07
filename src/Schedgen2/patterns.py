@@ -3,7 +3,15 @@ from math import log2, ceil
 from typing import List, Union
 from goal import GoalComm
 
-def binomialtree(comm_size: int, datasize: int, tag: int, algorithm: str = "reduce", ctd: int = 0, **kwargs) -> GoalComm:
+
+def binomialtree(
+    comm_size: int,
+    datasize: int,
+    tag: int,
+    algorithm: str = "reduce",
+    ctd: int = 0,
+    **kwargs,
+) -> GoalComm:
     """
     Create a binomial tree communication pattern.
 
@@ -29,7 +37,9 @@ def binomialtree(comm_size: int, datasize: int, tag: int, algorithm: str = "redu
                     send = comm.Send(size=datasize, dst=peer, src=rank, tag=tag)
                 else:
                     raise ValueError(
-                        "direction " + str(algorithm) + " in binomialtree not implemented."
+                        "direction "
+                        + str(algorithm)
+                        + " in binomialtree not implemented."
                     )
             if (send is not None) and (recv is not None):
                 if ctd > 0:
@@ -47,7 +57,15 @@ def binomialtree(comm_size: int, datasize: int, tag: int, algorithm: str = "redu
 
     return comm
 
-def recdoub(comm_size: int, datasize: int, tag: int, algorithm: str = "reduce-scatter", ctd: int = 0, **kwargs) -> GoalComm:
+
+def recdoub(
+    comm_size: int,
+    datasize: int,
+    tag: int,
+    algorithm: str = "reduce-scatter",
+    ctd: int = 0,
+    **kwargs,
+) -> GoalComm:
     """
     Create a recursive doubling communication pattern.
 
@@ -60,7 +78,10 @@ def recdoub(comm_size: int, datasize: int, tag: int, algorithm: str = "reduce-sc
     :return: GoalComm object that represents the communication pattern
     """
 
-    assert algorithm in ["reduce-scatter", "allgather"], f"the pattern does not currently support the {algorithm} algorithm"
+    assert algorithm in [
+        "reduce-scatter",
+        "allgather",
+    ], f"the pattern does not currently support the {algorithm} algorithm"
 
     comm = GoalComm(comm_size)
     num_steps = int(log2(comm_size))
@@ -68,18 +89,22 @@ def recdoub(comm_size: int, datasize: int, tag: int, algorithm: str = "reduce-sc
     for r in range(num_steps):
         for rank in range(comm_size):
             if algorithm in ["reduce-scatter"]:
-                dest = rank ^ (2 ** r)
+                dest = rank ^ (2**r)
                 message_size = datasize // (2 ** (r + 1))
             elif algorithm in ["allgather"]:
                 dest = rank ^ (2 ** (num_steps - r - 1))
                 message_size = datasize // (2 ** (num_steps - r))
             else:
-                raise ValueError(f"the pattern does not currently support the {algorithm} algorithm")
+                raise ValueError(
+                    f"the pattern does not currently support the {algorithm} algorithm"
+                )
             if dest < comm_size:
                 send = comm.Send(size=message_size, src=rank, dst=dest, tag=tag + r)
                 if dependencies[rank] is not None:
                     send.requires(dependencies[rank])
-                dependencies[rank] = comm.Recv(size=message_size, src=dest, dst=rank, tag=tag + r)
+                dependencies[rank] = comm.Recv(
+                    size=message_size, src=dest, dst=rank, tag=tag + r
+                )
                 if ctd > 0:
                     calc = comm.Calc(host=rank, size=ctd)
                     calc.requires(dependencies[rank])
@@ -87,8 +112,9 @@ def recdoub(comm_size: int, datasize: int, tag: int, algorithm: str = "reduce-sc
     return comm
 
 
-
-def ring(comm_size: int, datasize: int, tag: int, rounds: int = 1, ctd: int = 0, **kwargs) -> GoalComm:
+def ring(
+    comm_size: int, datasize: int, tag: int, rounds: int = 1, ctd: int = 0, **kwargs
+) -> GoalComm:
     """
     Create a ring communication pattern.
 
@@ -104,17 +130,31 @@ def ring(comm_size: int, datasize: int, tag: int, rounds: int = 1, ctd: int = 0,
     dependencies = [None] * comm_size
     for r in range(rounds):
         for rank in range(comm_size):
-            send = comm.Send(size=datasize, src=rank, dst=(rank + 1) % comm_size, tag=tag + r)
+            send = comm.Send(
+                size=datasize, src=rank, dst=(rank + 1) % comm_size, tag=tag + r
+            )
             if dependencies[rank] is not None:
                 send.requires(dependencies[rank])
-            dependencies[rank] = comm.Recv(size=datasize, src=(rank - 1) % comm_size, dst=rank, tag=tag + r)
+            dependencies[rank] = comm.Recv(
+                size=datasize, src=(rank - 1) % comm_size, dst=rank, tag=tag + r
+            )
             if ctd > 0:
                 calc = comm.Calc(host=rank, size=ctd)
                 calc.requires(dependencies[rank])
                 dependencies[rank] = calc
     return comm
 
-def _single_source_or_destination_linear(comm: GoalComm, anchor: int, datasizes: Union[List[int], List[List[int]]], tag: int, algorithm: str = "bcast", parallel: bool = True, window_size: int = 0, ctd: int = 0) -> GoalComm:
+
+def _single_source_or_destination_linear(
+    comm: GoalComm,
+    anchor: int,
+    datasizes: Union[List[int], List[List[int]]],
+    tag: int,
+    algorithm: str = "bcast",
+    parallel: bool = True,
+    window_size: int = 0,
+    ctd: int = 0,
+) -> GoalComm:
     """
     Create a single source or destination linear communication pattern.
 
@@ -128,8 +168,17 @@ def _single_source_or_destination_linear(comm: GoalComm, anchor: int, datasizes:
     :param ctd: compute time dependency for each send operation; default is 0 (no compute time)
     :return: GoalComm object that represents the communication pattern
     """
-    assert algorithm in ["bcast", "reduce", "alltoall", "incast", "outcast"], f"the pattern does not currently support the {algorithm} algorithm"
-    assert (parallel and window_size == 0 and ctd == 0) or algorithm not in ["reduce", "incast"], f"We do not introduce dependencies, windowing, or compute time for linear receives"
+    assert algorithm in [
+        "bcast",
+        "reduce",
+        "alltoall",
+        "incast",
+        "outcast",
+    ], f"the pattern does not currently support the {algorithm} algorithm"
+    assert (parallel and window_size == 0 and ctd == 0) or algorithm not in [
+        "reduce",
+        "incast",
+    ], f"We do not introduce dependencies, windowing, or compute time for linear receives"
 
     dependency = None
     if window_size > 0:
@@ -163,7 +212,7 @@ def _single_source_or_destination_linear(comm: GoalComm, anchor: int, datasizes:
                         send.requires(comm.Calc(host=anchor, size=ctd))
             else:
                 if ctd > 0:
-                    send.requires(comm.Calc(host=anchor, size=ctd)) 
+                    send.requires(comm.Calc(host=anchor, size=ctd))
         elif algorithm in ["reduce", "incast"]:
             datasize = datasizes[rank]
             send = comm.Send(src=rank, dst=anchor, size=datasize, tag=tag)
@@ -171,9 +220,22 @@ def _single_source_or_destination_linear(comm: GoalComm, anchor: int, datasizes:
             if ctd > 0:
                 send.requires(comm.Calc(host=rank, size=ctd))
         else:
-            raise ValueError(f"the pattern does not currently support the {algorithm} algorithm")
+            raise ValueError(
+                f"the pattern does not currently support the {algorithm} algorithm"
+            )
 
-def linear(comm_size: int, datasize: int, tag: int, algorithm: str = "bcast", parallel: bool = True, randomized_data: bool = False, window_size: int = 0, ctd: int = 0, **kwargs) -> GoalComm:
+
+def linear(
+    comm_size: int,
+    datasize: int,
+    tag: int,
+    algorithm: str = "bcast",
+    parallel: bool = True,
+    randomized_data: bool = False,
+    window_size: int = 0,
+    ctd: int = 0,
+    **kwargs,
+) -> GoalComm:
     """
     Create a linear communication pattern.
 
@@ -190,24 +252,38 @@ def linear(comm_size: int, datasize: int, tag: int, algorithm: str = "bcast", pa
     """
     comm = GoalComm(comm_size)
 
-    assert algorithm in ["bcast", "reduce", "alltoall", "incast", "outcast"], f"the pattern does not currently support the {algorithm} algorithm"
+    assert algorithm in [
+        "bcast",
+        "reduce",
+        "alltoall",
+        "incast",
+        "outcast",
+    ], f"the pattern does not currently support the {algorithm} algorithm"
 
     if algorithm in ["alltoall"]:
         datasizes = [
             [
-                (datasize + int(0.1 * random.randint(-datasize, datasize))) if randomized_data else datasize
+                (datasize + int(0.1 * random.randint(-datasize, datasize)))
+                if randomized_data
+                else datasize
                 for _ in range(comm_size)
             ]
             for _ in range(comm_size)
         ]
 
         for anchor in range(comm_size):
-            _single_source_or_destination_linear(comm, anchor, datasizes, tag, algorithm, parallel, window_size, ctd)
+            _single_source_or_destination_linear(
+                comm, anchor, datasizes, tag, algorithm, parallel, window_size, ctd
+            )
     else:
         datasizes = [
-            (datasize + int(0.1 * random.randint(-datasize, datasize))) if randomized_data else datasize
+            (datasize + int(0.1 * random.randint(-datasize, datasize)))
+            if randomized_data
+            else datasize
             for _ in range(comm_size)
         ]
-        _single_source_or_destination_linear(comm, 0, datasizes, tag, algorithm, parallel, window_size, ctd)
+        _single_source_or_destination_linear(
+            comm, 0, datasizes, tag, algorithm, parallel, window_size, ctd
+        )
 
     return comm

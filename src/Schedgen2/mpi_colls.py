@@ -3,7 +3,7 @@ from patterns import binomialtree, recdoub, ring, linear
 
 
 def dissemination(comm_size, datasize, tag):
-    #TODO: select or implement right pattern
+    # TODO: select or implement right pattern
     comm = GoalComm(comm_size)
     for rank in range(0, comm_size):
         dist = 1
@@ -26,7 +26,15 @@ def dissemination(comm_size, datasize, tag):
             dist *= 2
     return comm
 
-def incast(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "linear", unbalanced: bool = False, **kwargs):
+
+def incast(
+    comm_size: int,
+    datasize: int,
+    tag: int = 42,
+    ptrn: str = "linear",
+    unbalanced: bool = False,
+    **kwargs,
+):
     assert ptrn == "linear", "incast only supports the linear communication pattern"
     return linear(
         comm_size=comm_size,
@@ -35,10 +43,18 @@ def incast(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "linear", u
         algorithm="incast",
         parallel=True,
         randomized_data=unbalanced,
-        **kwargs
+        **kwargs,
     )
 
-def outcast(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "linear", unbalanced: bool = False, **kwargs):
+
+def outcast(
+    comm_size: int,
+    datasize: int,
+    tag: int = 42,
+    ptrn: str = "linear",
+    unbalanced: bool = False,
+    **kwargs,
+):
     assert ptrn == "linear", "outcast only supports the linear communication pattern"
     return linear(
         comm_size=comm_size,
@@ -47,18 +63,28 @@ def outcast(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "linear", 
         algorithm="outcast",
         parallel=True,
         randomized_data=unbalanced,
-        **kwargs
+        **kwargs,
     )
 
-def reduce(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "binomialtree", unbalanced: bool = False, **kwargs):
+
+def reduce(
+    comm_size: int,
+    datasize: int,
+    tag: int = 42,
+    ptrn: str = "binomialtree",
+    unbalanced: bool = False,
+    **kwargs,
+):
     if ptrn == "binomialtree":
-        assert unbalanced == False, "binomialtree does not currently support randomized data"
+        assert (
+            unbalanced == False
+        ), "binomialtree does not currently support randomized data"
         return binomialtree(
             comm_size=comm_size,
             datasize=datasize,
             tag=tag,
             algorithm="reduce",
-            **kwargs
+            **kwargs,
         )
     elif ptrn == "linear":
         return linear(
@@ -68,20 +94,26 @@ def reduce(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "binomialtr
             algorithm="reduce",
             parallel=True,
             randomized_data=unbalanced,
-            **kwargs
+            **kwargs,
         )
     else:
         raise ValueError(f"reduce with pattern {ptrn} not implemented")
 
-def bcast(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "binomialtree", unbalanced: bool = False, **kwargs):
+
+def bcast(
+    comm_size: int,
+    datasize: int,
+    tag: int = 42,
+    ptrn: str = "binomialtree",
+    unbalanced: bool = False,
+    **kwargs,
+):
     if ptrn == "binomialtree":
-        assert unbalanced == False, "binomialtree does not currently support randomized data"
+        assert (
+            unbalanced == False
+        ), "binomialtree does not currently support randomized data"
         return binomialtree(
-            comm_size=comm_size,
-            datasize=datasize,
-            tag=tag,
-            algorithm="bcast",
-            **kwargs
+            comm_size=comm_size, datasize=datasize, tag=tag, algorithm="bcast", **kwargs
         )
     elif ptrn == "linear":
         return linear(
@@ -91,14 +123,22 @@ def bcast(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "binomialtre
             algorithm="bcast",
             parallel=True,
             randomized_data=unbalanced,
-            **kwargs
+            **kwargs,
         )
     else:
         raise ValueError(f"bcast with pattern {ptrn} not implemented")
 
-def allreduce(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "recdoub", unbalanced: bool = False, **kwargs):
+
+def allreduce(
+    comm_size: int,
+    datasize: int,
+    tag: int = 42,
+    ptrn: str = "recdoub",
+    unbalanced: bool = False,
+    **kwargs,
+):
     assert unbalanced == False, "unbalanced data not currently supported"
-    comms = [] # reduce-scatter and allgather
+    comms = []  # reduce-scatter and allgather
     if ptrn == "recdoub":
         comms.append(
             recdoub(
@@ -106,16 +146,16 @@ def allreduce(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "recdoub
                 datasize=datasize,
                 tag=tag,
                 algorithm="reduce-scatter",
-                **kwargs
+                **kwargs,
             )
         )
         comms.append(
             recdoub(
                 comm_size=comm_size,
                 datasize=datasize,
-                tag=tag+comm_size,
+                tag=tag + comm_size,
                 algorithm="allgather",
-                **kwargs
+                **kwargs,
             )
         )
     elif ptrn == "ring":
@@ -125,8 +165,8 @@ def allreduce(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "recdoub
                     comm_size=comm_size,
                     datasize=datasize,
                     tag=tag + (i * comm_size),
-                    rounds=comm_size-1,
-                    **kwargs
+                    rounds=comm_size - 1,
+                    **kwargs,
                 )
             )
     else:
@@ -134,7 +174,16 @@ def allreduce(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "recdoub
     comms[0].Append(comms[1])
     return comms[0]
 
-def alltoall(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "linear", unbalanced: bool = False, window_size: int = 0, **kwargs):
+
+def alltoall(
+    comm_size: int,
+    datasize: int,
+    tag: int = 42,
+    ptrn: str = "linear",
+    unbalanced: bool = False,
+    window_size: int = 0,
+    **kwargs,
+):
     if ptrn == "linear":
         return linear(
             comm_size=comm_size,
@@ -144,7 +193,7 @@ def alltoall(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "linear",
             parallel=(window_size == 0),
             randomized_data=unbalanced,
             window_size=window_size,
-            **kwargs
+            **kwargs,
         )
     else:
         raise ValueError(f"alltoall with pattern {ptrn} not implemented")
