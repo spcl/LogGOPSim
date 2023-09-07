@@ -1,7 +1,7 @@
 import random
 from math import log2, ceil
 from typing import List, Union
-from goal import GoalComm, GoalOp
+from goal import GoalComm
 
 def binomialtree(comm_size: int, datasize: int, tag: int, algorithm: str = "reduce", ctd: int = 0, **kwargs) -> GoalComm:
     """
@@ -128,8 +128,8 @@ def _single_source_or_destination_linear(comm: GoalComm, anchor: int, datasizes:
     :param ctd: compute time dependency for each send operation; default is 0 (no compute time)
     :return: GoalComm object that represents the communication pattern
     """
-    assert algorithm in ["bcast", "reduce", "alltoall"], f"the pattern does not currently support the {algorithm} algorithm"
-    assert (parallel and window_size == 0 and ctd == 0) or algorithm in ["bcast", "alltoall"], f"We do not introduce dependencies, windowing, or compute time for linear receives"
+    assert algorithm in ["bcast", "reduce", "alltoall", "incast", "outcast"], f"the pattern does not currently support the {algorithm} algorithm"
+    assert (parallel and window_size == 0 and ctd == 0) or algorithm not in ["reduce", "incast"], f"We do not introduce dependencies, windowing, or compute time for linear receives"
 
     dependency = None
     if window_size > 0:
@@ -138,7 +138,7 @@ def _single_source_or_destination_linear(comm: GoalComm, anchor: int, datasizes:
     for rank in range(comm.comm_size):
         if rank == anchor:
             continue
-        if algorithm in ["bcast", "alltoall"]:
+        if algorithm in ["bcast", "alltoall", "outcast"]:
             if algorithm == "alltoall":
                 datasize = datasizes[anchor][rank]
             else:
@@ -164,7 +164,7 @@ def _single_source_or_destination_linear(comm: GoalComm, anchor: int, datasizes:
             else:
                 if ctd > 0:
                     send.requires(comm.Calc(host=anchor, size=ctd)) 
-        elif algorithm in ["reduce"]:
+        elif algorithm in ["reduce", "incast"]:
             datasize = datasizes[rank]
             send = comm.Send(src=rank, dst=anchor, size=datasize, tag=tag)
             recv = comm.Recv(src=rank, dst=anchor, size=datasize, tag=tag)
@@ -190,7 +190,7 @@ def linear(comm_size: int, datasize: int, tag: int, algorithm: str = "bcast", pa
     """
     comm = GoalComm(comm_size)
 
-    assert algorithm in ["bcast", "reduce", "alltoall"], f"the pattern does not currently support the {algorithm} algorithm"
+    assert algorithm in ["bcast", "reduce", "alltoall", "incast", "outcast"], f"the pattern does not currently support the {algorithm} algorithm"
 
     if algorithm in ["alltoall"]:
         datasizes = [

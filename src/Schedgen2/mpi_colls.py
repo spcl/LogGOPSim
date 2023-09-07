@@ -2,7 +2,7 @@ from math import log2, ceil
 import random
 
 from goal import GoalComm
-from patterns import iterative_send_recv, parallel_send_recv, windowed_send_recv
+from patterns import binomialtree, recdoub, ring, linear
 
 
 def dissemination(comm_size, datasize, tag):
@@ -29,6 +29,96 @@ def dissemination(comm_size, datasize, tag):
             dist *= 2
     return comm
 
+def incast(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "linear", unbalanced: bool = False, **kwargs):
+    assert ptrn == "linear", "incast only supports the linear communication pattern"
+    return linear(
+        comm_size=comm_size,
+        datasize=datasize,
+        tag=tag,
+        algorithm="incast",
+        parallel=True,
+        randomized_data=unbalanced,
+        **kwargs
+    )
+
+def outcast(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "linear", unbalanced: bool = False, **kwargs):
+    assert ptrn == "linear", "outcast only supports the linear communication pattern"
+    return linear(
+        comm_size=comm_size,
+        datasize=datasize,
+        tag=tag,
+        algorithm="outcast",
+        parallel=True,
+        randomized_data=unbalanced,
+        **kwargs
+    )
+
+def reduce(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "binomialtree", unbalanced: bool = False, **kwargs):
+    if ptrn == "binomialtree":
+        assert unbalanced == False, "binomialtree does not currently support randomized data"
+        return binomialtree(
+            comm_size=comm_size,
+            datasize=datasize,
+            tag=tag,
+            algorithm="reduce",
+            **kwargs
+        )
+    elif ptrn == "linear":
+        return linear(
+            comm_size=comm_size,
+            datasize=datasize,
+            tag=tag,
+            algorithm="reduce",
+            parallel=True,
+            randomized_data=unbalanced,
+            **kwargs
+        )
+    else:
+        raise ValueError(f"reduce with pattern {ptrn} not implemented")
+
+def bcast(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "binomialtree", unbalanced: bool = False, **kwargs):
+    if ptrn == "binomialtree":
+        assert unbalanced == False, "binomialtree does not currently support randomized data"
+        return binomialtree(
+            comm_size=comm_size,
+            datasize=datasize,
+            tag=tag,
+            algorithm="bcast",
+            **kwargs
+        )
+    elif ptrn == "linear":
+        return linear(
+            comm_size=comm_size,
+            datasize=datasize,
+            tag=tag,
+            algorithm="bcast",
+            parallel=True,
+            randomized_data=unbalanced,
+            **kwargs
+        )
+    else:
+        raise ValueError(f"bcast with pattern {ptrn} not implemented")
+
+def allreduce(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "recdoub", unbalanced: bool = False, **kwargs):
+    assert unbalanced == False, "unbalanced data not currently supported"
+    if ptrn == "recdoub":
+        return recdoub(
+            comm_size=comm_size,
+            datasize=datasize,
+            tag=tag,
+            algorithm="allreduce",
+            **kwargs
+        )
+    elif ptrn == "ring":
+        return ring(
+            comm_size=comm_size,
+            datasize=datasize,
+            tag=tag,
+            algorithm="allreduce",
+            **kwargs
+        )
+    else:
+        raise ValueError(f"allreduce with pattern {ptrn} not implemented")
 
 def recdoub_allreduce(comm, comm_size, datasize, tag, ctd=0):
     num_steps = int(log2(comm_size))
@@ -206,27 +296,3 @@ def multi_alltoall(algorithm, num_comm_groups, comm_size, **kwargs):
     return comm
 
 
-def incast(comm_size, unbalanced, datasize, tag, **kwargs):
-    comm = GoalComm(comm_size)
-    for src in range(1, comm_size):
-        size = (
-            datasize + int(0.1 * random.randint(-datasize, datasize))
-            if unbalanced
-            else datasize
-        )
-        comm.Send(src=src, dst=0, size=size, tag=tag)
-        comm.Recv(src=src, dst=0, size=size, tag=tag)
-    return comm
-
-
-def outcast(comm_size, unbalanced, datasize, tag, **kwargs):
-    comm = GoalComm(comm_size)
-    for dst in range(1, comm_size):
-        size = (
-            datasize + int(0.1 * random.randint(-datasize, datasize))
-            if unbalanced
-            else datasize
-        )
-        comm.Send(src=0, dst=dst, size=size, tag=tag)
-        comm.Recv(src=0, dst=dst, size=size, tag=tag)
-    return comm
