@@ -150,26 +150,13 @@ def alltoall(comm_size: int, datasize: int, tag: int = 42, ptrn: str = "linear",
         raise ValueError(f"alltoall with pattern {ptrn} not implemented")
 
 
-def multi(comm: str, comm_size: int, datasize: int, num_comm_groups: int, **kwargs):
-    # TODO
-    pass
-
-#def multi_allreduce(algorithm, num_comm_groups, comm_size, **kwargs):
-#    comm = GoalComm(comm_size * num_comm_groups)
-#    comms = comm.CommSplit(
-#        color=[i // comm_size for i in range(comm_size * num_comm_groups)],
-#        key=[i % comm_size for i in range(comm_size * num_comm_groups)],
-#    )
-#    for comm_split in comms:
-#        allreduce(algorithm, comm_split.CommSize(), **kwargs)
-#    return comm
-
-#def multi_alltoall(algorithm, num_comm_groups, comm_size, **kwargs):
-#    comm = GoalComm(comm_size * num_comm_groups)
-#    comms = comm.CommSplit(
-#        color=[i // comm_size for i in range(comm_size * num_comm_groups)],
-#        key=[i % comm_size for i in range(comm_size * num_comm_groups)],
-#    )
-#    for comm_split in comms:
-#        alltoall(algorithm, comm_split.CommSize(), **kwargs)
-#    return comm
+def multi(collective: callable, num_comm_groups: int, comm_size: int, **kwargs):
+    comm = GoalComm(comm_size * num_comm_groups)
+    comms = comm.CommSplit(
+        color=[i // comm_size for i in range(comm_size * num_comm_groups)],
+        key=[i % comm_size for i in range(comm_size * num_comm_groups)],
+    )
+    for comm_split in comms:
+        comm_collective = collective(comm_size=comm_size, **kwargs)
+        comm_split.Append(comm_collective)
+    return comm

@@ -212,6 +212,31 @@ def communication_pattern_selection(args):
         # Pattern was specified by the user
         pass
 
+def comm_to_func(comm: str) -> callable:
+    """
+    Convert a communication type to a function that generates the communication.
+    
+    :param comm: The communication type.
+    :return: A function that generates the communication.
+    """
+
+    if comm == "incast":
+        return incast
+    elif comm == "outcast":
+        return outcast
+    elif comm == "reduce":
+        return reduce
+    elif comm == "bcast":
+        return bcast
+    elif comm == "dissemination":
+        return dissemination
+    elif comm == "allreduce":
+        return allreduce
+    elif comm == "alltoall":
+        return alltoall
+    else:
+        raise ValueError(f"Communication type {comm} not implemented")
+
 args = parser.parse_args()
 if args.config is not None:
     with open(args.config, "r") as f:
@@ -223,20 +248,10 @@ communication_pattern_selection(args)
 verify_params(args)
 args.tag = 42
 
-if args.comm == "incast":
-    g = incast(**vars(args))
-elif args.comm == "outcast":
-    g = outcast(**vars(args))
-elif args.comm == "reduce":
-    g = reduce(**vars(args))
-elif args.comm == "bcast":
-    g = bcast(**vars(args))
-elif args.comm == "dissemination":
-    g = dissemination(**vars(args))
-elif args.comm == "allreduce":
-    g = allreduce(**vars(args))
-elif args.comm == "alltoall":
-    g = alltoall(**vars(args))
+if "num_comm_groups" not in vars(args) or args.num_comm_groups is None or args.num_comm_groups <= 1:
+    g = comm_to_func(args.comm)(**vars(args))
+else:
+    g = multi(comm_to_func(args.comm), args.num_comm_groups, args.comm_size, **vars(args))
 
 if args.txt2bin is not None:
     assert args.output != "stdout", "Cannot use txt2bin with stdout"
