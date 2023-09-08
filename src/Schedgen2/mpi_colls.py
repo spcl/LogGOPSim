@@ -1,5 +1,101 @@
+import json
 from goal import GoalComm
 from patterns import binomialtree, recdoub, ring, linear
+
+
+def mpi_communication_pattern_selection(
+    algorithm: str, comm_size: int, datasize: int, ptrn_config: str = None
+):
+    if ptrn_config is not None and ptrn_config != "":
+        # The config file should be a json file with the following format (lower bounds are inclusive, upper bounds are exclusive):
+        # [
+        #     {
+        #         "algorithm": "algorithm_name", # can be left empty or omitted, otherwise only matching algorithms are considered
+        #         "ptrn": "pattern_name",
+        #         "lower_bounds": {
+        #             "comm_size": -1 for no lower bound on the x-axis,
+        #             "datasize": -1 for no lower bound on the y-axis,
+        #             "combined": [(grad, intercept), (grad, intercept), ...] for the combined lower bounds
+        #         },
+        #         "upper_bounds": {
+        #             "comm_size": -1 for no upper bound on the x-axis,
+        #             "datasize": -1 for no upper bound on the y-axis,
+        #             "combined": [(grad, intercept), (grad, intercept), ...] for the combined upper bounds
+        #         }
+        #     },
+        #     ...
+        # ]
+        with open(ptrn_config, "r") as f:
+            config = json.load(f)
+            for c in config:
+                if (
+                    "algorithm" in c
+                    and c["algorithm"] != ""
+                    and c["algorithm"] != algorithm
+                ):
+                    continue
+                if (
+                    c["lower_bounds"]["comm_size"] != -1
+                    and comm_size < c["lower_bounds"]["comm_size"]
+                ):
+                    continue
+                if (
+                    c["upper_bounds"]["comm_size"] != -1
+                    and comm_size >= c["upper_bounds"]["comm_size"]
+                ):
+                    continue
+                if (
+                    c["lower_bounds"]["datasize"] != -1
+                    and datasize < c["lower_bounds"]["datasize"]
+                ):
+                    continue
+                if (
+                    c["upper_bounds"]["datasize"] != -1
+                    and datasize >= c["upper_bounds"]["datasize"]
+                ):
+                    continue
+                if c["lower_bounds"]["combined"] is not None:
+                    for grad, intercept in c["lower_bounds"]["combined"]:
+                        if datasize < grad * comm_size + intercept:
+                            continue
+                if c["upper_bounds"]["combined"] is not None:
+                    for grad, intercept in c["upper_bounds"]["combined"]:
+                        if datasize >= grad * comm_size + intercept:
+                            continue
+                return c["ptrn"]
+            raise ValueError(
+                f"Cannot find a pattern for comm_size={comm_size} and datasize={datasize} according to the config file"
+            )
+    else:
+        if algorithm == "incast":
+            return "linear"
+        elif algorithm == "outcast":
+            return "linear"
+        elif algorithm == "reduce":
+            # use binomial tree for large data size and when the communicator size is a power of 2
+            if datasize > 4096 and comm_size & (comm_size - 1) == 0:
+                return "binomialtree"
+            else:
+                return "linear"
+        elif algorithm == "bcast":
+            # use binomial tree for small data size and when the communicator size is a power of 2
+            if datasize <= 4096 and comm_size & (comm_size - 1) == 0:
+                return "binomialtree"
+            else:
+                return "linear"
+        elif algorithm == "dissemination":
+            # TODO currently not implemented to support different patterns
+            pass
+        elif algorithm == "allreduce":
+            # Use recdoub for power of 2 communicator size and small data sizes
+            if datasize <= 4096 and comm_size & (comm_size - 1) == 0:
+                return "recdoub"
+            else:
+                return "ring"
+        elif algorithm == "alltoall" or algorithm == "alltoallv":
+            return "linear"
+        else:
+            raise ValueError(f"Communication type {algorithm} not implemented")
 
 
 def dissemination(comm_size, datasize, tag):
@@ -27,44 +123,32 @@ def dissemination(comm_size, datasize, tag):
     return comm
 
 
-def incast(
+def scatter(
     comm_size: int,
     datasize: int,
     tag: int = 42,
     ptrn: str = "linear",
-    unbalanced: bool = False,
     **kwargs,
 ):
-    assert ptrn == "linear", "incast only supports the linear communication pattern"
-    return linear(
-        comm_size=comm_size,
-        datasize=datasize,
-        tag=tag,
-        algorithm="incast",
-        parallel=True,
-        randomized_data=unbalanced,
-        **kwargs,
-    )
-
-
-def outcast(
-    comm_size: int,
-    datasize: int,
-    tag: int = 42,
-    ptrn: str = "linear",
-    unbalanced: bool = False,
-    **kwargs,
-):
-    assert ptrn == "linear", "outcast only supports the linear communication pattern"
-    return linear(
-        comm_size=comm_size,
-        datasize=datasize,
-        tag=tag,
-        algorithm="outcast",
-        parallel=True,
-        randomized_data=unbalanced,
-        **kwargs,
-    )
+    if ptrn == "binomialtree":
+        return binomialtree(
+            comm_size=comm_size,
+            datasize=datasize,
+            tag=tag,
+            algorithm="scatter",
+            **kwargs,
+        )
+    elif ptrn == "linear":
+        return linear(
+            comm_size=comm_size,
+            datasize=datasize,
+            tag=tag,
+            algorithm="scatter",
+            parallel=True,
+            **kwargs,
+        )
+    else:
+        raise ValueError(f"scatter with pattern {ptrn} not implemented")
 
 
 def reduce(
@@ -72,13 +156,9 @@ def reduce(
     datasize: int,
     tag: int = 42,
     ptrn: str = "binomialtree",
-    unbalanced: bool = False,
     **kwargs,
 ):
     if ptrn == "binomialtree":
-        assert (
-            unbalanced == False
-        ), "binomialtree does not currently support randomized data"
         return binomialtree(
             comm_size=comm_size,
             datasize=datasize,
@@ -93,7 +173,6 @@ def reduce(
             tag=tag,
             algorithm="reduce",
             parallel=True,
-            randomized_data=unbalanced,
             **kwargs,
         )
     else:
@@ -105,13 +184,9 @@ def bcast(
     datasize: int,
     tag: int = 42,
     ptrn: str = "binomialtree",
-    unbalanced: bool = False,
     **kwargs,
 ):
     if ptrn == "binomialtree":
-        assert (
-            unbalanced == False
-        ), "binomialtree does not currently support randomized data"
         return binomialtree(
             comm_size=comm_size, datasize=datasize, tag=tag, algorithm="bcast", **kwargs
         )
@@ -122,7 +197,6 @@ def bcast(
             tag=tag,
             algorithm="bcast",
             parallel=True,
-            randomized_data=unbalanced,
             **kwargs,
         )
     else:
@@ -134,10 +208,8 @@ def allreduce(
     datasize: int,
     tag: int = 42,
     ptrn: str = "recdoub",
-    unbalanced: bool = False,
     **kwargs,
 ):
-    assert unbalanced == False, "unbalanced data not currently supported"
     comms = []  # reduce-scatter and allgather
     if ptrn == "recdoub":
         comms.append(
@@ -180,7 +252,6 @@ def alltoall(
     datasize: int,
     tag: int = 42,
     ptrn: str = "linear",
-    unbalanced: bool = False,
     window_size: int = 0,
     **kwargs,
 ):
@@ -191,7 +262,6 @@ def alltoall(
             tag=tag,
             algorithm="alltoall",
             parallel=(window_size == 0),
-            randomized_data=unbalanced,
             window_size=window_size,
             **kwargs,
         )
@@ -199,13 +269,25 @@ def alltoall(
         raise ValueError(f"alltoall with pattern {ptrn} not implemented")
 
 
-def multi(collective: callable, num_comm_groups: int, comm_size: int, **kwargs):
-    comm = GoalComm(comm_size * num_comm_groups)
-    comms = comm.CommSplit(
-        color=[i // comm_size for i in range(comm_size * num_comm_groups)],
-        key=[i % comm_size for i in range(comm_size * num_comm_groups)],
-    )
-    for comm_split in comms:
-        comm_collective = collective(comm_size=comm_size, **kwargs)
-        comm_split.Append(comm_collective)
-    return comm
+def alltoallv(
+    comm_size: int,
+    datasize: int,
+    tag: int = 42,
+    ptrn: str = "linear",
+    window_size: int = 0,
+    **kwargs,
+):
+    # TODO: currently data is only randomized, add support for custom data sizes
+    if ptrn == "linear":
+        return linear(
+            comm_size=comm_size,
+            datasize=datasize,
+            tag=tag,
+            algorithm="alltoallv",
+            parallel=(window_size == 0),
+            randomized_data=True,
+            window_size=window_size,
+            **kwargs,
+        )
+    else:
+        raise ValueError(f"alltoallv with pattern {ptrn} not implemented")

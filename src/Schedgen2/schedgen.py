@@ -4,6 +4,7 @@ import tempfile
 import subprocess
 import argparse
 from mpi_colls import *
+from additional_microbenchmarks import *
 
 parser = argparse.ArgumentParser(description="Generate GOAL Schedules.")
 
@@ -11,12 +12,13 @@ subparsers = parser.add_subparsers(
     help="Communication to generate", dest="comm", required=True
 )
 mpi = []
+additional_microbenchmarks = []
 
 incast_parser = subparsers.add_parser("incast")
-mpi.append(incast_parser)
+additional_microbenchmarks.append(incast_parser)
 
 outcast_parser = subparsers.add_parser("outcast")
-mpi.append(outcast_parser)
+additional_microbenchmarks.append(outcast_parser)
 
 dissemination_parser = subparsers.add_parser("dissemination")
 mpi.append(dissemination_parser)
@@ -27,27 +29,33 @@ mpi.append(reduce_parser)
 bcast_parser = subparsers.add_parser("bcast")
 mpi.append(bcast_parser)
 
+scatter_parser = subparsers.add_parser("scatter")
+mpi.append(scatter_parser)
+
 allreduce_parser = subparsers.add_parser("allreduce")
 mpi.append(allreduce_parser)
 
 alltoall_parser = subparsers.add_parser("alltoall")
 mpi.append(alltoall_parser)
 
-for p in ["incast", "outcast", "alltoall"]:
+alltoallv_parser = subparsers.add_parser("alltoallv")
+mpi.append(alltoallv_parser)
+
+for p in additional_microbenchmarks:
     p.add_argument(
-        "--unbalanced",
-        dest="unbalanced",
+        "--randomized_data",
+        dest="randomized_data",
         action="store_true",
         help="Use unbalanced data sizes",
     )
 
-for p in ["allreduce", "alltoall"]:
+for p in [allreduce_parser, alltoall_parser, alltoallv_parser]:
     p.add_argument(
         "--num_comm_groups",
         dest="num_comm_groups",
         type=int,
         default=1,
-        help="Number of communication groups, >1 for multi-allreduce and multi-alltoall",
+        help="Number of communication groups, >1 for multi-allreduce and multi-alltoall(v)",
     )
 
 for p in mpi:
@@ -85,8 +93,8 @@ for p in mpi:
         help="Window size for windowed linear communication patterns",
     )
     p.add_argument(
-        "--compute_dependency_time",
-        dest="ctd",
+        "--compute_time_dependency",
+        dest="compute_time_dependency",
         type=int,
         default=0,
         help="Compute time that is to be inserted in between send operations",
@@ -128,106 +136,6 @@ def verify_params(args):
     ), "Currently recdoub pattern requires a power of 2 communicator size."
 
 
-def communication_pattern_selection(args):
-    if args.ptrn_config is not None and args.ptrn == "datasize_based":
-        # The config file should be a json file with the following format (lower bounds are inclusive, upper bounds are exclusive):
-        # [
-        #     {
-        #         "algorithm": "algorithm_name", # can be left empty or omitted, otherwise only matching algorithms are considered
-        #         "ptrn": "pattern_name",
-        #         "lower_bounds": {
-        #             "comm_size": -1 for no lower bound on the x-axis,
-        #             "datasize": -1 for no lower bound on the y-axis,
-        #             "combined": [(grad, intercept), (grad, intercept), ...] for the combined lower bounds
-        #         },
-        #         "upper_bounds": {
-        #             "comm_size": -1 for no upper bound on the x-axis,
-        #             "datasize": -1 for no upper bound on the y-axis,
-        #             "combined": [(grad, intercept), (grad, intercept), ...] for the combined upper bounds
-        #         }
-        #     },
-        #     ...
-        # ]
-        with open(args.ptrn_config, "r") as f:
-            config = json.load(f)
-            comm_size = args.comm_size
-            datasize = args.datasize
-            for c in config:
-                if (
-                    "algorithm" in c
-                    and c["algorithm"] != ""
-                    and c["algorithm"] != args.comm
-                ):
-                    continue
-                if (
-                    c["lower_bounds"]["comm_size"] != -1
-                    and comm_size < c["lower_bounds"]["comm_size"]
-                ):
-                    continue
-                if (
-                    c["upper_bounds"]["comm_size"] != -1
-                    and comm_size >= c["upper_bounds"]["comm_size"]
-                ):
-                    continue
-                if (
-                    c["lower_bounds"]["datasize"] != -1
-                    and datasize < c["lower_bounds"]["datasize"]
-                ):
-                    continue
-                if (
-                    c["upper_bounds"]["datasize"] != -1
-                    and datasize >= c["upper_bounds"]["datasize"]
-                ):
-                    continue
-                if c["lower_bounds"]["combined"] is not None:
-                    for grad, intercept in c["lower_bounds"]["combined"]:
-                        if datasize < grad * comm_size + intercept:
-                            continue
-                if c["upper_bounds"]["combined"] is not None:
-                    for grad, intercept in c["upper_bounds"]["combined"]:
-                        if datasize >= grad * comm_size + intercept:
-                            continue
-                args.ptrn = c["ptrn"]
-                break
-            if args.ptrn == "datasize_based":
-                raise ValueError(
-                    f"Cannot find a pattern for comm_size={comm_size} and datasize={datasize} according to the config file"
-                )
-    elif args.ptrn == "datasize_based":
-        if args.comm == "incast":
-            args.ptrn = "linear"
-        elif args.comm == "outcast":
-            args.ptrn = "linear"
-        elif args.comm == "reduce":
-            # use binomial tree for large data size and when the communicator size is a power of 2
-            if args.datasize > 4096 and args.comm_size & (args.comm_size - 1) == 0:
-                args.ptrn = "binomialtree"
-            else:
-                args.ptrn = "linear"
-        elif args.comm == "bcast":
-            # use binomial tree for small data size and when the communicator size is a power of 2
-            if args.datasize <= 4096 and args.comm_size & (args.comm_size - 1) == 0:
-                args.ptrn = "binomialtree"
-            else:
-                args.ptrn = "linear"
-        elif args.comm == "dissemination":
-            # TODO currently not implemented to support different patterns
-            pass
-        elif args.comm == "allreduce":
-            # Use recdoub for power of 2 communicator size and small data sizes
-            if args.datasize <= 4096 and args.comm_size & (args.comm_size - 1) == 0:
-                args.ptrn = "recdoub"
-            else:
-                args.ptrn = "ring"
-        elif args.comm == "alltoall":
-            args.ptrn = "linear"
-        else:
-            raise ValueError(f"Communication type {args.comm} not implemented")
-    else:
-        # Pattern was specified by the user
-        pass
-
-
 def comm_to_func(comm: str) -> callable:
     """
     Convert a communication type to a function that generates the communication.
@@ -244,14 +152,30 @@ def comm_to_func(comm: str) -> callable:
         return reduce
     elif comm == "bcast":
         return bcast
+    elif comm == "scatter":
+        return scatter
     elif comm == "dissemination":
         return dissemination
     elif comm == "allreduce":
         return allreduce
     elif comm == "alltoall":
         return alltoall
+    elif comm == "alltoallv":
+        return alltoallv
     else:
         raise ValueError(f"Communication type {comm} not implemented")
+
+
+def multi(collective: callable, num_comm_groups: int, comm_size: int, **kwargs):
+    comm = GoalComm(comm_size * num_comm_groups)
+    comms = comm.CommSplit(
+        color=[i // comm_size for i in range(comm_size * num_comm_groups)],
+        key=[i % comm_size for i in range(comm_size * num_comm_groups)],
+    )
+    for comm_split in comms:
+        comm_collective = collective(comm_size=comm_size, **kwargs)
+        comm_split.Append(comm_collective)
+    return comm
 
 
 args = parser.parse_args()
@@ -261,7 +185,16 @@ if args.config is not None:
     for k, v in config.items():
         setattr(args, k, v)
 
-communication_pattern_selection(args)
+if args.ptrn == "datasize_based":
+    if args.comm in [p.prog.split()[-1] for p in mpi]:
+        args.ptrn = mpi_communication_pattern_selection(
+            args.comm, args.comm_size, args.datasize
+        )
+    else:
+        raise ValueError(
+            f"Communication type {args.comm} does not currently support data size based pattern selection"
+        )
+
 verify_params(args)
 args.tag = 42
 
