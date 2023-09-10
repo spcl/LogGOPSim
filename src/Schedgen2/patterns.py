@@ -120,6 +120,7 @@ def ring(
     comm_size: int,
     datasize: int,
     tag: int,
+    algorithm: str = "reduce-scatter",
     rounds: int = 1,
     compute_time_dependency: int = 0,
     **kwargs,
@@ -130,6 +131,7 @@ def ring(
     :param comm_size: number of ranks in the communicator
     :param datasize: size of data to send in each round
     :param tag: base tag that is incremented for each round
+    :param algorithm: communication algorithm that uses this pattern; default is reduce-scatter
     :param rounds: number of rounds to send data around the ring
     :param compute_time_dependency: compute time dependency for each send operation; if 0 (default), no compute time is added
     :param kwargs: additional arguments that are ignored
@@ -137,6 +139,8 @@ def ring(
     """
     comm = GoalComm(comm_size)
     dependencies = [None] * comm_size
+    if algorithm in ["reduce-scatter", "allgather"]:
+        datasize = datasize // comm_size
     for r in range(rounds):
         for rank in range(comm_size):
             send = comm.Send(

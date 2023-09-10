@@ -58,7 +58,7 @@ for p in [allreduce_parser, alltoall_parser, alltoallv_parser]:
         help="Number of communication groups, >1 for multi-allreduce and multi-alltoall(v)",
     )
 
-for p in mpi:
+for p in mpi + additional_microbenchmarks:
     p.add_argument(
         "--ptrn",
         dest="ptrn",
@@ -190,6 +190,8 @@ if args.ptrn == "datasize_based":
         args.ptrn = mpi_communication_pattern_selection(
             args.comm, args.comm_size, args.datasize
         )
+    elif args.comm in [p.prog.split()[-1] for p in additional_microbenchmarks]:
+        args.ptrn = "linear"
     else:
         raise ValueError(
             f"Communication type {args.comm} does not currently support data size based pattern selection"
@@ -206,7 +208,7 @@ if (
     g = comm_to_func(args.comm)(**vars(args))
 else:
     g = multi(
-        comm_to_func(args.comm), args.num_comm_groups, args.comm_size, **vars(args)
+        comm_to_func(args.comm), **vars(args)
     )
 
 if args.txt2bin is not None:

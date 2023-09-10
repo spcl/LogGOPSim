@@ -67,11 +67,7 @@ def mpi_communication_pattern_selection(
                 f"Cannot find a pattern for comm_size={comm_size} and datasize={datasize} according to the config file"
             )
     else:
-        if algorithm == "incast":
-            return "linear"
-        elif algorithm == "outcast":
-            return "linear"
-        elif algorithm == "reduce":
+        if algorithm == "reduce":
             # use binomial tree for large data size and when the communicator size is a power of 2
             if datasize > 4096 and comm_size & (comm_size - 1) == 0:
                 return "binomialtree"
@@ -231,16 +227,26 @@ def allreduce(
             )
         )
     elif ptrn == "ring":
-        for i in range(2):
-            comms.append(
-                ring(
-                    comm_size=comm_size,
-                    datasize=datasize,
-                    tag=tag + (i * comm_size),
-                    rounds=comm_size - 1,
-                    **kwargs,
-                )
+        comms.append(
+            ring(
+                comm_size=comm_size,
+                datasize=datasize,
+                tag=tag,
+                algorithm="reduce-scatter",
+                rounds=comm_size - 1,
+                **kwargs,
             )
+        )
+        comms.append(
+            ring(
+                comm_size=comm_size,
+                datasize=datasize,
+                tag=tag + comm_size,
+                algorithm="allgather",
+                rounds=comm_size - 1,
+                **kwargs,
+            )
+        )
     else:
         raise ValueError(f"allreduce with pattern {ptrn} not implemented")
     comms[0].Append(comms[1])
