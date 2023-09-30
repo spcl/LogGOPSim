@@ -59,7 +59,7 @@ class AllprofParser:
                     tstart = int(args[0])
                     tend = int(args[-1])
                     last_op, last_endtime = self.getLastOp(rank)
-                    newCalc = self.comm[rank].Calc(last_endtime - tstart)
+                    newCalc = self.comm[rank].Calc(tstart - last_endtime)
                     newCalc.requires(last_op)
                     self.setLastOp(rank, newCalc, tend)
                 newcomm = getattr(self, name)(*args)
@@ -197,6 +197,6 @@ class AllprofParser:
 
 if __name__ == "__main__":
     p = AllprofParser()
-    comm = p.parseDir("./lulesh_8/", True)
-    comm.write_goal()
+    comm = p.parseDir("./helloworld-4-trace/", True)
+    comm.write_goal_graph()
 
