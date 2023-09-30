@@ -55,6 +55,16 @@ class GoalSend(GoalOp):
             )
         )
 
+    def write_goal_graph(self, labeller, fh, comm, basecomm):
+        fh.write(
+            "\"l{label}\" [label=\"send {size}b to {dst} tag {tag}\"];\n".format(
+                label=labeller.GetLabel(self),
+                size=str(self.size),
+                dst=str(comm.TranslateRank(self.dst, basecomm)),
+                tag=str(labeller.MakeTag(self.tag, labeller.GetCommID(comm))),
+            )
+        )
+
 
 class GoalRecv(GoalOp):
     def __init__(self, src, tag, size):
@@ -73,6 +83,16 @@ class GoalRecv(GoalOp):
             )
         )
 
+    def write_goal_graph(self, labeller, fh, comm, basecomm):
+        fh.write(
+            "\"l{label}\" [label=\"recv {size}b from {src} tag {tag}\"];\n".format(
+                label=labeller.GetLabel(self),
+                size=str(self.size),
+                src=str(comm.TranslateRank(self.src, basecomm)),
+                tag=str(labeller.MakeTag(self.tag, labeller.GetCommID(comm))),
+            )
+        )
+
 
 class GoalCalc(GoalOp):
     def __init__(self, size):
@@ -82,6 +102,13 @@ class GoalCalc(GoalOp):
     def write_goal(self, labeller, fh, comm, basecomm):
         fh.write(
             "l{label}: calc {size}\n".format(
+                label=labeller.GetLabel(self), size=str(self.size)
+            )
+        )
+    
+    def write_goal_graph(self, labeller, fh, comm, basecomm):
+        fh.write(
+            "\"l{label}\" [label=\"calc {size}\"]\n".format(
                 label=labeller.GetLabel(self), size=str(self.size)
             )
         )
@@ -144,6 +171,7 @@ class GoalRank:
         res = [x for x in self.ops if x not in s]
         return res
 
+
     def write_goal(self, labeller, fh, rankid=True, basecomm=None):
         if basecomm is None:
             basecomm = (
@@ -162,6 +190,29 @@ class GoalRank:
                 )
         for sc in self.comm.subcomms:
             sc.write_goal_subcomm(labeller, fh, self.rank, basecomm)
+        if rankid:
+            fh.write("}\n\n")
+    
+
+    def write_goal_graph(self, labeller, fh, rankid=True, basecomm=None):
+        if basecomm is None:
+            basecomm = (
+                self.comm
+            )  # stupid python evals default args at method definition, not call time :(
+        if rankid:
+            fh.write("subgraph cluster_" + str(self.rank) + " {\n")
+            fh.write("style=filled; color=lightgrey; node [style=filled,color=white]; label=\"rank "+str(self.rank)+"\";")
+        for op in self.ops:
+            op.write_goal_graph(labeller, fh, self.comm, basecomm)
+        for op in self.ops:
+            for req in op.depends_on:
+                fh.write(
+                    "l{label2} -> l{label1}\n".format(
+                        label1=labeller.GetLabel(op), label2=labeller.GetLabel(req)
+                    )
+                )
+        for sc in self.comm.subcomms:
+            sc.write_goal_subcomm_graph(labeller, fh, self.rank, basecomm)
         if rankid:
             fh.write("}\n\n")
 
@@ -242,6 +293,12 @@ class GoalComm:
             labeller = GoalLabeller()
         for r in self.ranks:
             r.write_goal(labeller, fh, rankid=True, basecomm=self)
+    
+    def write_goal_graph(self, labeller=None, fh=sys.stdout):
+        if labeller is None:
+            labeller = GoalLabeller()
+        for r in self.ranks:
+            r.write_goal_graph(labeller, fh, rankid=True, basecomm=self)
 
     def write_goal_subcomm(self, labeller, fh, rank, basecomm):
         """if this comm has a rank with base_rank=rank, print its goal ops without enclosing brackets"""
