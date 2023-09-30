@@ -1,6 +1,8 @@
 import sys
+import ast
 import re
 import glob
+from mpi_colls import allreduce, alltoall
 from goal import GoalComm
 
 
@@ -10,10 +12,19 @@ class AllprofParser:
         self.tracenamePtrn = "pmpi-trace-rank-*.txt"
         self.comm = None
         self.verbose = True
-        self.requests = []
-        self.REQUEST_SIZE = 8
+        self.requests = []    # for each comm_world rank, this holds one dict, mapping reqptrs to ops
+        self.REQUEST_SIZE = 8 # this is the size in bytes of a MPI_Request, i.e., in waitall we step through the array using this stepsize
+        self.last_op = {}     # one pair (op, endtime) per comm_world rank
+    
+    def getLastOp(self, rank: int):
+        if rank not in self.last_op:
+            return None
+        return self.last_op[rank]
+    
+    def setLastOp(self, rank: int, op, endtime: int):
+        self.last_op[rank] = (op, endtime)
 
-    def parseLine(self, rank, allprof_line):
+    def parseLine(self, rank: int, allprof_line: str):
         # if the line is a comment, ignore it
         if re.match("#.*\n", allprof_line):
             return
@@ -26,25 +37,63 @@ class AllprofParser:
             name = m.group(1)
             args = m.group(2)
             if hasattr(self, name):
-                args = args.strip()
-                args = args.split(":")
+                args = args.strip().split(":")
+                # turn args into ints where possible (ddts, comms, ... are not ints!)
+                newargs = []
+                for arg in args:
+                    newarg = 0
+                    try:
+                        newarg = int(arg)
+                    except:
+                        newarg = arg
+                    newargs.append(newarg)
+                args = newargs
                 args.append(rank)
                 if self.verbose:
                     print("Parsing "+name+" with args "+str(args))
-                getattr(self, name)(*args)
+                # for each line we get its start and end time (first and last elem in args)
+                # we add a calc of the size of the difference between the endtime of the last
+                # operation on rank and the starttime to account for any computation that might
+                # have happened between calls - we init last_op in MPI_Init, so it might be None
+                if self.getLastOp(rank) is not None:
+                    tstart = int(args[0])
+                    tend = int(args[-1])
+                    last_op, last_endtime = self.getLastOp(rank)
+                    newCalc = self.comm[rank].Calc(last_endtime - tstart)
+                    newCalc.requires(last_op)
+                    self.setLastOp(rank, newCalc, tend)
+                newcomm = getattr(self, name)(*args)
+                if newcomm is not None:
+                    # append rank of newcomm to self.comm, however all independent ops in newcomm depend on last_op
+                    # and the new last_op becomes the last op in newcomm (if there is only one, otherwise we make a calc of size 0)
+                    self.comm[rank].Append(newcomm[rank], dependOn=self.getLastOp(rank)[0])
+                    lastop = None
+                    l = newcomm[rank].LastOps()
+                    if len(l) == 1:
+                        lastop = l[0]
+                    else:
+                        lastop = self.comm[rank].Calc(0)
+                        lastop.requires(self.getLastOp(rank)[0]) # just to be save in case newcomm is empty
+                        for o in l:
+                            lastop.requires(o)
+                    self.setLastOp(rank, lastop, args[-1])
             else:
                 raise NotImplementedError("Parsing of "+allprof_line.strip()+" is not implemented yet.")
         else:
             raise ValueError("The line "+allprof_line+" doesn't look like anything allprof should output!")
 
     def MPI_Initialized(self, tstart, flagptr, tend, rank):
-        return # this doesn't modify the goal schedule
+        return None # this doesn't modify the goal schedule
     
-    def MPI_Init(self, tstart, argcptr, argvptr, tend, rank):
-        return # this doesn't modify the goal schedule
+    def MPI_Init(self, tstart, argcptr, argvptr, tend, rank: int):
+        # add one calc, which lasts until MPI_Init finished in the trace
+        self.setLastOp(rank, self.comm[rank].Calc(tend), tend)
+        print(tend)
+        return 
     
     def MPI_Comm_size(self, tstart, comm, sizeptr, tend, rank):
-        return # this doesn't modify the goal schedule
+        # add a calc which last until this operation finished in the trace and depends on the last op
+        return
     
     def MPI_Comm_rank(self, tstart, comm, rankptr, tend, rank):
         return # this doesn't modify the goal schedule
@@ -75,7 +124,7 @@ class AllprofParser:
     
     def MPI_Wait(self, tstart, requestptr, statusptr, tend, rank):
         calc = None
-        op = self.findRequest(rank, int(requestptr))
+        op = self.findRequest(rank, requestptr)
         if op is None:
             print("Wait on a request we didn't see before - might be ok if the user initialized it to MPI_REQUEST_NULL, but also might mean request size is set to the wrong constant! -- check the code of the trace app!")
             return
@@ -83,13 +132,14 @@ class AllprofParser:
         calc.requires(op)
 
     def MPI_Barrier(self, tstart, comm, tend, rank):
-        return #TODO implement
+        return alltoall(datasize=0, comm_size=self.comm.CommSize())
 
     def MPI_Wtime(self, tstart, tend, rank):
         return #this does not modify the goal schedule
     
-    def MPI_Allreduce(tstart, sendbuf, recvbuf, count, datatype, op, comm, tend, rank):
-        return #TODO implement
+    def MPI_Allreduce(self, tstart, sendbuf, recvbuf, count, datatype, op, comm, tend, rank):
+        datasize = self.getDDTSize(datatype) * count
+        return allreduce(datasize, self.comm.CommSize())
     
     def MPI_Reduce(*args):
         return #TODO implement

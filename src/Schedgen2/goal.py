@@ -116,13 +116,17 @@ class GoalRank:
     def Merge(self, mrank):
         self.ops += mrank.ops
 
-    def Append(self, arank):
-        c = self.Calc(0)
-        for l in self.LastOps():
-            if l == c:
-                pass
-            else:
-                c.requires(l)
+    def Append(self, arank, dependOn=None):
+        """ Append arank to self. If dependOn is None, all ops in self need to finish before we start executing aranks ops. If dependOn is given we only depend on that. """
+        if dependOn is None:
+            c = self.Calc(0)
+            for l in self.LastOps():
+                if l == c:
+                    pass
+                else:
+                    c.requires(l)
+        else:
+            c = dependOn
         self.ops += arank.ops
         for i in arank.IndepOps():
             i.requires(c) 
