@@ -129,15 +129,17 @@ class AllprofParser:
         return None
     
     def MPI_Wait(self, tstart, requestptr, statusptr, tend, rank):
-        g = GoalComm(self.CommSize())
         calc = None
         op = self.findRequest(rank, requestptr)
         if op is None:
             print("Wait on a request we didn't see before - might be ok if the user initialized it to MPI_REQUEST_NULL, but also might mean request size is set to the wrong constant! -- check the code of the trace app!")
             return
-        calc = g[rank].Calc(0)
+        calc = self.comm[rank].Calc(0)
         calc.requires(op)
-        return g
+         # Wait directly modifies self.comm, thus returns None and we need to handle deps from/on last op in here
+        calc.requires(self.getLastOp(rank)[0])
+        self.setLastOp(rank, calc, tend)
+        return None
 
     def MPI_Barrier(self, tstart, comm, tend, rank):
         return alltoall(datasize=0, comm_size=self.comm.CommSize())
