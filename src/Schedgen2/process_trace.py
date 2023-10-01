@@ -2,18 +2,19 @@ import sys
 import ast
 import re
 import glob
+import argparse
+import os
 from mpi_colls import allreduce, alltoall
 from goal import GoalComm
 
 
 class AllprofParser:
 
-    def __init__(self):
-        self.tracenamePtrn = "pmpi-trace-rank-*.txt"
+    def __init__(self, requestsize=8, verbose=False):
         self.comm = None
-        self.verbose = True
+        self.verbose = verbose
         self.requests = []    # for each comm_world rank, this holds one dict, mapping reqptrs to ops
-        self.REQUEST_SIZE = 8 # this is the size in bytes of a MPI_Request, i.e., in waitall we step through the array using this stepsize
+        self.REQUEST_SIZE = requestsize # this is the size in bytes of a MPI_Request, i.e., in waitall we step through the array using this stepsize
         self.last_op = {}     # one pair (op, endtime) per comm_world rank
     
     def getLastOp(self, rank: int):
@@ -88,7 +89,6 @@ class AllprofParser:
     def MPI_Init(self, tstart, argcptr, argvptr, tend, rank: int):
         # add one calc, which lasts until MPI_Init finished in the trace
         self.setLastOp(rank, self.comm[rank].Calc(tend), tend)
-        print(tend)
         return 
     
     def MPI_Comm_size(self, tstart, comm, sizeptr, tend, rank):
@@ -99,16 +99,18 @@ class AllprofParser:
         return # this doesn't modify the goal schedule
     
     def MPI_Irecv(self, tstart, buf, count, datatype, src, tag, comm, req, tend, rank):
+        g = GoalComm(self.comm.CommSize())
         ddtsize = self.getDDTSize(datatype)
-        op = self.comm[rank].Recv(int(src), int(tag), int(count)*ddtsize)
+        op = g[rank].Recv(int(src), int(tag), int(count)*ddtsize)
         self.addRequest(rank, req, op)
-        return #TODO handle splitted comms
+        return g #TODO handle splitted comms
 
     def MPI_Isend(self, tstart, buf, count, datatype, dst, tag, comm, req, tend, rank):
+        g = GoalComm(self.comm.CommSize())
         ddtsize = self.getDDTSize(datatype)
-        op = self.comm[rank].Send(int(dst), int(tag), int(count)*ddtsize)
+        op = g[rank].Send(int(dst), int(tag), int(count)*ddtsize)
         self.addRequest(rank, req, op)
-        return #TODO handle splitted comms
+        return g #TODO handle splitted comms
     
     def MPI_Waitall(self, tstart, count, requestptr, statusptr, tend, rank):
         calc = None
@@ -121,15 +123,21 @@ class AllprofParser:
             if calc is None:
                 calc = self.comm[rank].Calc(0)
             calc.requires(op)
+        # Waitall directly modifies self.comm, thus returns None and we need to handle deps from/on last op in here
+        calc.requires(self.getLastOp(rank)[0])
+        self.setLastOp(rank, calc, tend)
+        return None
     
     def MPI_Wait(self, tstart, requestptr, statusptr, tend, rank):
+        g = GoalComm(self.CommSize())
         calc = None
         op = self.findRequest(rank, requestptr)
         if op is None:
             print("Wait on a request we didn't see before - might be ok if the user initialized it to MPI_REQUEST_NULL, but also might mean request size is set to the wrong constant! -- check the code of the trace app!")
             return
-        calc = self.comm[rank].Calc(0)
+        calc = g[rank].Calc(0)
         calc.requires(op)
+        return g
 
     def MPI_Barrier(self, tstart, comm, tend, rank):
         return alltoall(datasize=0, comm_size=self.comm.CommSize())
@@ -163,23 +171,20 @@ class AllprofParser:
     def getDDTSize(self, ddtstr):
         return int(ddtstr.split(",")[1])
 
-    def TraceFileForRank(self, rank):
-        fh = open(self.tracepath + "/" + "pmpi-trace-rank-" + str(rank) + ".txt")
-        return fh
-
-
-    def parseDir(self, tracepath, abortonerror=False):
+    def parseDir(self, tracepath, nameptrn="pmpi-trace-rank-*.txt", abortonerror=False):
       self.tracepath = tracepath
-      files = glob.glob(tracepath + self.tracenamePtrn)
+      files = glob.glob(os.path.join(tracepath, nameptrn))
       self.comm = GoalComm(len(files))
       for rank in range(0, self.comm.CommSize()):
           self.requests.append({})
       for rank in range(0, self.comm.CommSize()):
-          fh = self.TraceFileForRank(rank)
+          file_name = str(rank).join(nameptrn.split("*"))
+          fh = open(os.path.join(tracepath, file_name), "r")
           while True:
             line = fh.readline()
             if not line:
-                print("Finished parsing ranks "+str(rank)+" trace.")
+                if self.verbose:
+                    print("Finished parsing ranks "+str(rank)+" trace.")
                 break
             else:
                 try:
@@ -189,14 +194,30 @@ class AllprofParser:
                         raise e
                         sys.exit(1)
                     else:
-                        print("There was a problem but we attempt to carry on: "+str(e))
+                        if self.verbose:
+                            print("There was a problem but we attempt to carry on: "+str(e))
           fh.close()
       return self.comm
 
 
 
 if __name__ == "__main__":
-    p = AllprofParser()
-    comm = p.parseDir("./helloworld-4-trace/", True)
-    comm.write_goal_graph()
+    parser = argparse.ArgumentParser(
+                    prog='Schedgen2 Trace Parser',
+                    description='Reads an MPI trace in liballprof format and outputs a GOAL schedule (or a graphical representation of it).')
+    parser.add_argument('-v', '--verbose', action='store_true', help="Be more verbose, i.e., print progress info.")
+    parser.add_argument('-i', '--tracedir', required=True, help="Path to the directory containing the individual traces, each tracefile name follows nameptrn.")
+    parser.add_argument('-n', '--nameptrn', default="pmpi-trace-rank-*.txt", help="Filename of traces, use * to indicate rank id (in MPI_COMM_WORLD), defaults to pmpi-trace-rank*.txt")
+    parser.add_argument('-f', '--output-format', default="goal", choices=["goal", "graphviz"], help="Output format, either goal or graphviz, defaults to goal")
+    parser.add_argument('-o', '--outfile', default="-", help="Output file name, use - for stdout (if verbose mode is on progress will be printed to stdout), defaults to -.")
+    parser.add_argument('-r', '--requestsize', default=8, help="Size of an MPI_REQUEST in bytes, defaults to 8.")
+    parser.add_argument('-a', '--abortonerror', action='store_true', help="By default we ignore errors such as not implemented MPI functions. Use this flag to abort on such errors.")
+    args = parser.parse_args()
+    p = AllprofParser(requestsize=args.requestsize, verbose=args.verbose)
+    comm = p.parseDir(args.tracedir, nameptrn=args.nameptrn, abortonerror=args.abortonerror)
+    outfile = sys.stdout
+    if args.outfile != "-":
+        outfile = open(args.outfile, "w")
+    comm.write_goal(fh=outfile, format=args.output_format)
+    outfile.close()
 
