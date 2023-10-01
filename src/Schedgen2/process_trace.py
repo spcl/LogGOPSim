@@ -151,9 +151,6 @@ class AllprofParser:
         datasize = self.getDDTSize(datatype) * count
         return allreduce(datasize, self.comm.CommSize())
     
-    def MPI_Reduce(*args):
-        return #TODO implement
-    
     def MPI_Finalize(self, tstart, tend, rank):
         return #this does not modify the goal schedule
 
