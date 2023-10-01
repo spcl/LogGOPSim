@@ -45,25 +45,28 @@ class GoalSend(GoalOp):
         self.tag = tag
         self.size = size
 
-    def write_goal(self, labeller, fh, comm, basecomm):
-        fh.write(
-            "l{label}: send {size}b to {dst} tag {tag}\n".format(
-                label=labeller.GetLabel(self),
-                size=str(self.size),
-                dst=str(comm.TranslateRank(self.dst, basecomm)),
-                tag=str(labeller.MakeTag(self.tag, labeller.GetCommID(comm))),
+    def write_goal(self, labeller, fh, comm, basecomm, format="goal"):
+        if format == "goal":
+            fh.write(
+                "l{label}: send {size}b to {dst} tag {tag}\n".format(
+                    label=labeller.GetLabel(self),
+                    size=str(self.size),
+                    dst=str(comm.TranslateRank(self.dst, basecomm)),
+                    tag=str(labeller.MakeTag(self.tag, labeller.GetCommID(comm))),
+                )
             )
-        )
-
-    def write_goal_graph(self, labeller, fh, comm, basecomm):
-        fh.write(
-            "\"l{label}\" [label=\"send {size}b to {dst} tag {tag}\"];\n".format(
-                label=labeller.GetLabel(self),
-                size=str(self.size),
-                dst=str(comm.TranslateRank(self.dst, basecomm)),
-                tag=str(labeller.MakeTag(self.tag, labeller.GetCommID(comm))),
+        elif format == "graphviz":
+            fh.write(
+                "\"l{label}\" [label=\"send {size}b to {dst} tag {tag}\"];\n".format(
+                    label=labeller.GetLabel(self),
+                    size=str(self.size),
+                    dst=str(comm.TranslateRank(self.dst, basecomm)),
+                    tag=str(labeller.MakeTag(self.tag, labeller.GetCommID(comm))),
+                )
             )
-        )
+        else:
+            raise NotImplementedError("Requested output format "+str(format)+" not implemented!")
+        
 
 
 class GoalRecv(GoalOp):
@@ -73,25 +76,27 @@ class GoalRecv(GoalOp):
         self.tag = tag
         self.size = size
 
-    def write_goal(self, labeller, fh, comm, basecomm):
-        fh.write(
-            "l{label}: recv {size}b from {src} tag {tag}\n".format(
-                label=labeller.GetLabel(self),
-                size=str(self.size),
-                src=str(comm.TranslateRank(self.src, basecomm)),
-                tag=str(labeller.MakeTag(self.tag, labeller.GetCommID(comm))),
+    def write_goal(self, labeller, fh, comm, basecomm, format="goal"):
+        if format == "goal":
+            fh.write(
+                "l{label}: recv {size}b from {src} tag {tag}\n".format(
+                    label=labeller.GetLabel(self),
+                    size=str(self.size),
+                    src=str(comm.TranslateRank(self.src, basecomm)),
+                    tag=str(labeller.MakeTag(self.tag, labeller.GetCommID(comm))),
+                )
             )
-        )
-
-    def write_goal_graph(self, labeller, fh, comm, basecomm):
-        fh.write(
-            "\"l{label}\" [label=\"recv {size}b from {src} tag {tag}\"];\n".format(
-                label=labeller.GetLabel(self),
-                size=str(self.size),
-                src=str(comm.TranslateRank(self.src, basecomm)),
-                tag=str(labeller.MakeTag(self.tag, labeller.GetCommID(comm))),
+        elif format == "graphviz":
+            fh.write(
+                "\"l{label}\" [label=\"recv {size}b from {src} tag {tag}\"];\n".format(
+                    label=labeller.GetLabel(self),
+                    size=str(self.size),
+                    src=str(comm.TranslateRank(self.src, basecomm)),
+                    tag=str(labeller.MakeTag(self.tag, labeller.GetCommID(comm))),
+                )
             )
-        )
+        else:
+            raise NotImplementedError("Requested output format "+str(format)+" not implemented!")
 
 
 class GoalCalc(GoalOp):
@@ -99,20 +104,20 @@ class GoalCalc(GoalOp):
         super().__init__()
         self.size = size
 
-    def write_goal(self, labeller, fh, comm, basecomm):
-        fh.write(
-            "l{label}: calc {size}\n".format(
-                label=labeller.GetLabel(self), size=str(self.size)
+    def write_goal(self, labeller, fh, comm, basecomm, format="goal"):
+        if format == "goal":
+            fh.write(
+                "l{label}: calc {size}\n".format(
+                    label=labeller.GetLabel(self), size=str(self.size))
             )
-        )
-    
-    def write_goal_graph(self, labeller, fh, comm, basecomm):
-        fh.write(
-            "\"l{label}\" [label=\"calc {size}\"]\n".format(
-                label=labeller.GetLabel(self), size=str(self.size)
+        elif format == "graphviz":
+            fh.write(
+                "\"l{label}\" [label=\"calc {size}\"]\n".format(
+                    label=labeller.GetLabel(self), size=str(self.size)
+                )
             )
-        )
-
+        else:
+            raise NotImplementedError("Requested output format "+str(format)+" not implemented!")
 
 class GoalRank:
     def __init__(self, comm, rank):
@@ -143,8 +148,9 @@ class GoalRank:
     def Merge(self, mrank):
         self.ops += mrank.ops
 
-    def Append(self, arank, dependOn=None):
-        """ Append arank to self. If dependOn is None, all ops in self need to finish before we start executing aranks ops. If dependOn is given we only depend on that. """
+    def Append(self, arank, dependOn=None, allOpsDepend=False):
+        """ Append arank to self. If dependOn is None, all ops in self need to finish before we start executing aranks ops. If dependOn is given we only depend on that. 
+            By default (allOpsDepend) only independent ops in arank depend on self, however if allOpsDepend=True all ops do. """
         if dependOn is None:
             c = self.Calc(0)
             for l in self.LastOps():
@@ -155,7 +161,10 @@ class GoalRank:
         else:
             c = dependOn
         self.ops += arank.ops
-        for i in arank.IndepOps():
+        depops = arank.IndepOps()
+        if allOpsDepend:
+            depops = arank.ops
+        for i in depops:
             i.requires(c) 
 
     def IndepOps(self):
@@ -172,47 +181,37 @@ class GoalRank:
         return res
 
 
-    def write_goal(self, labeller, fh, rankid=True, basecomm=None):
+    def write_goal(self, labeller, fh, rankid=True, basecomm=None, format="goal"):
         if basecomm is None:
             basecomm = (
                 self.comm
             )  # stupid python evals default args at method definition, not call time :(
         if rankid:
-            fh.write("rank " + str(self.rank) + " {\n")
+            if format == "goal":
+                fh.write("rank " + str(self.rank) + " {\n")
+            elif format == "graphviz":
+                fh.write("subgraph cluster_" + str(self.rank) + " {\n")
+                fh.write("style=filled; color=lightgrey; node [style=filled,color=white]; label=\"rank "+str(self.rank)+"\";")
         for op in self.ops:
-            op.write_goal(labeller, fh, self.comm, basecomm)
-        for op in self.ops:
-            for req in op.depends_on:
-                fh.write(
-                    "l{label1} requires l{label2}\n".format(
-                        label1=labeller.GetLabel(op), label2=labeller.GetLabel(req)
-                    )
-                )
-        for sc in self.comm.subcomms:
-            sc.write_goal_subcomm(labeller, fh, self.rank, basecomm)
-        if rankid:
-            fh.write("}\n\n")
-    
-
-    def write_goal_graph(self, labeller, fh, rankid=True, basecomm=None):
-        if basecomm is None:
-            basecomm = (
-                self.comm
-            )  # stupid python evals default args at method definition, not call time :(
-        if rankid:
-            fh.write("subgraph cluster_" + str(self.rank) + " {\n")
-            fh.write("style=filled; color=lightgrey; node [style=filled,color=white]; label=\"rank "+str(self.rank)+"\";")
-        for op in self.ops:
-            op.write_goal_graph(labeller, fh, self.comm, basecomm)
+            op.write_goal(labeller, fh, self.comm, basecomm, format=format)
         for op in self.ops:
             for req in op.depends_on:
-                fh.write(
-                    "l{label2} -> l{label1}\n".format(
-                        label1=labeller.GetLabel(op), label2=labeller.GetLabel(req)
+                if format == "goal":
+                    fh.write(
+                        "l{label1} requires l{label2}\n".format(
+                            label1=labeller.GetLabel(op), label2=labeller.GetLabel(req)
+                        )
                     )
-                )
+                if format == "graphviz":
+                    # we "invert" dependencies in grphviz format, i.e, a->b means a is executed before b.
+                    # Where in goal it would be "b requires a" - but this would make graphs look upside down. 
+                    fh.write(
+                        "l{label2} -> l{label1}\n".format(
+                            label1=labeller.GetLabel(op), label2=labeller.GetLabel(req)
+                        )
+                    )
         for sc in self.comm.subcomms:
-            sc.write_goal_subcomm_graph(labeller, fh, self.rank, basecomm)
+            sc.write_goal_subcomm(labeller, fh, self.rank, basecomm, format=format)
         if rankid:
             fh.write("}\n\n")
 
@@ -287,24 +286,24 @@ class GoalComm:
         self.subcomms += newcomms
         return newcomms
 
-    def write_goal(self, labeller=None, fh=sys.stdout):
-        fh.write("num_ranks " + str(len(self.ranks)) + "\n\n")
+    def write_goal(self, labeller=None, fh=sys.stdout, format="goal"):
+        if format == "goal":
+            fh.write("num_ranks " + str(len(self.ranks)) + "\n\n")
+        elif format == "graphviz":
+            fh.write("digraph G {\n")
         if labeller is None:
             labeller = GoalLabeller()
         for r in self.ranks:
-            r.write_goal(labeller, fh, rankid=True, basecomm=self)
+            r.write_goal(labeller, fh, rankid=True, basecomm=self, format=format)
+        if format == "graphviz":
+            fh.write("}\n")
     
-    def write_goal_graph(self, labeller=None, fh=sys.stdout):
-        if labeller is None:
-            labeller = GoalLabeller()
-        for r in self.ranks:
-            r.write_goal_graph(labeller, fh, rankid=True, basecomm=self)
 
-    def write_goal_subcomm(self, labeller, fh, rank, basecomm):
+    def write_goal_subcomm(self, labeller, fh, rank, basecomm, format="goal"):
         """if this comm has a rank with base_rank=rank, print its goal ops without enclosing brackets"""
         for r in self.ranks:
             if r.base_rank == rank:
-                r.write_goal(labeller, fh, rankid=False, basecomm=basecomm)
+                r.write_goal(labeller, fh, rankid=False, basecomm=basecomm, format=format)
 
     def TranslateRank(self, rank, basecomm):
         """Find out the rank id of the given rank (in self) in basecomm"""
