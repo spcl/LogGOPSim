@@ -87,16 +87,14 @@ class AllprofParser:
         return None # this doesn't modify the goal schedule
     
     def MPI_Init(self, tstart, argcptr, argvptr, tend, rank: int):
-        # add one calc, which lasts until MPI_Init finished in the trace
         self.setLastOp(rank, self.comm[rank].Calc(tend), tend)
-        return 
+        return None
     
     def MPI_Comm_size(self, tstart, comm, sizeptr, tend, rank):
-        # add a calc which last until this operation finished in the trace and depends on the last op
-        return
+        return None
     
     def MPI_Comm_rank(self, tstart, comm, rankptr, tend, rank):
-        return # this doesn't modify the goal schedule
+        return None
     
     def MPI_Irecv(self, tstart, buf, count, datatype, src, tag, comm, req, tend, rank):
         g = GoalComm(self.comm.CommSize())
@@ -145,14 +143,14 @@ class AllprofParser:
         return alltoall(datasize=0, comm_size=self.comm.CommSize())
 
     def MPI_Wtime(self, tstart, tend, rank):
-        return #this does not modify the goal schedule
+        return None #this does not modify the goal schedule
     
     def MPI_Allreduce(self, tstart, sendbuf, recvbuf, count, datatype, op, comm, tend, rank):
         datasize = self.getDDTSize(datatype) * count
         return allreduce(datasize, self.comm.CommSize())
     
     def MPI_Finalize(self, tstart, tend, rank):
-        return #this does not modify the goal schedule
+        return None #this does not modify the goal schedule
 
     def addRequest(self, rank, req, op):
         self.requests[rank][int(req)] = op
@@ -172,7 +170,10 @@ class AllprofParser:
 
     def parseDir(self, tracepath, nameptrn="pmpi-trace-rank-*.txt", abortonerror=False):
       self.tracepath = tracepath
-      files = glob.glob(os.path.join(tracepath, nameptrn))
+      searchpath = os.path.join(tracepath, nameptrn)
+      files = glob.glob(searchpath)
+      if len(files) < 1:
+          raise ValueError("No tracefiles found at path "+str(searchpath))
       self.comm = GoalComm(len(files))
       for rank in range(0, self.comm.CommSize()):
           self.requests.append({})
