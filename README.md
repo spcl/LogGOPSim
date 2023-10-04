@@ -17,7 +17,7 @@ Parts of the toolchain
  * Schedgen:  While it is possible to write a GOAL file for LogGOPSim by hand, this is not advised. Instead, the Schedgen tool can be used to create such files. Schedgen can produce GOAL files for single MPI collective operations, but also allows to produce GOAL files which mimic the communication patterns observed in ML training workloads. It can also convert traces of MPI applications into the GOAL format. In case Schedgen does not offer the communication pattern you want to simulate, it can be extended using a C++ or Python API.
  * Schedgen2: An experimental re-implementation of Schedgen in Python - while this offers features that Schedgen lacks it misses many things stil.
  * Txt2bin: The output of Schedgen is produced in a human-readable text format, which makes it easy to debug schedules, however, for large scale simulations the limiting resource is memory/cache, thus we convert the GOAL file into a space-efficient binary format before feeding it into LogGOPSim. The txt2bin tool performs this conversion. When invoking LogGOPSim, the user has the option of allowing "destructive reading" of the binary schedule, i.e., the input file is memory mapped and modified during the execution to limit further reduce the amount of memory required during large simulations.
- * liballprof: A wrapper library around MPI which records all MPI call, including their non-data arguments, the MPI traces produced can be converted into the GOAL format by Schedgen.
+ * liballprof: A wrapper library around MPI which records all MPI calls, including their non-data arguments, the MPI traces produced can be converted into the GOAL format by Schedgen.
 
 
 Building the toolchain
