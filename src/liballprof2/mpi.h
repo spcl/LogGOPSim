@@ -49,7 +49,7 @@
 #define OPAL_BUILD_PLATFORM_COMPILER_FAMILYID 1
 
 /* The compiler version which OMPI was built with */
-#define OPAL_BUILD_PLATFORM_COMPILER_VERSION 262657
+#define OPAL_BUILD_PLATFORM_COMPILER_VERSION 852480
 
 /* Define to 1 if you have the ANSI C header files. */
 #define OPAL_STDC_HEADERS 1
@@ -127,7 +127,7 @@
 #define OMPI_HAVE_FORTRAN_INTEGER8 1
 
 /* Whether we have FORTRAN REAL*16 or not */
-#define OMPI_HAVE_FORTRAN_REAL16 0
+#define OMPI_HAVE_FORTRAN_REAL16 1
 
 /* Whether we have FORTRAN REAL*2 or not */
 #define OMPI_HAVE_FORTRAN_REAL2 0
@@ -169,13 +169,13 @@
 /* #undef ptrdiff_t */
 
 /* Whether we want MPI cxx support or not */
-#define OMPI_BUILD_CXX_BINDINGS 0
+#define OMPI_BUILD_CXX_BINDINGS 1
 
 /* do we want to try to work around C++ bindings SEEK_* issue? */
 #define OMPI_WANT_MPI_CXX_SEEK 1
 
 /* Whether a const_cast on a 2-d array will work with the C++ compiler */
-#define OMPI_CXX_SUPPORTS_2D_CONST_CAST 0
+#define OMPI_CXX_SUPPORTS_2D_CONST_CAST 1
 
 /* Whether OMPI was built with parameter checking or not */
 #define OMPI_PARAM_CHECK 1

@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 project(LogGOPSim)
 
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
 
@@ -27,7 +28,16 @@ add_executable(schedgen Schedgen/buffer_element.cpp Schedgen/schedgen.cpp Schedg
 
 # build liballprof2
 # download mpi.h from Open MPI
-# generate liballprof wrapper code
+find_package(MPI)
+include_directories(SYSTEM ${MPI_INCLUDE_PATH})
+add_custom_target(mpi_header_avail      DEPENDS ${PROJECT_SOURCE_DIR}/liballprof2/mpi.h)
+add_custom_target(mpi_wrapper_generated DEPENDS ${PROJECT_SOURCE_DIR}/liballprof2/mpi_wrapper.c)
+add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/liballprof2/mpi_wrapper.c
+    COMMAND ${PROJECT_SOURCE_DIR}/liballprof2/gencode.py -m ${PROJECT_SOURCE_DIR}/liballprof2/mpi.h -c ${PROJECT_SOURCE_DIR}/liballprof2/mpi_wrapper.c DEPENDS mpi_header_avail)
+add_library(mpipclog ${PROJECT_SOURCE_DIR}/liballprof2/mpi_wrapper.c)
+add_dependencies(mpipclog mpi_wrapper_generated)
+target_link_libraries(mpipclog ${MPI_C_LIBRARIES})
+
 
 include(CTest)
 # test the c++ toolchain for some pattern

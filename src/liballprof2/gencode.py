@@ -1,10 +1,14 @@
+#! /usr/bin/env python3
+
 import re
 import clang.cindex
+import argparse
 from collections import defaultdict
 
 class AllprofCodegen:
 
-    def __init__(self):
+    def __init__(self, libclang_path):
+        self.libclang_path=libclang_path
         self.nodes = []
         self.types = defaultdict(list)
         self.BLACKLISTED_FUNCTIONS = [
@@ -41,7 +45,47 @@ class AllprofCodegen:
         epilog_code += f"  WRITE_TRACE(\"%0.2f\\n\", PMPI_Wtime()*1e6);\n"
         return epilog_code
 
+    def get_count_for_param_in_func(self, param, func):
+        mapping = {}
+        mapping[("MPI_Cart_create", "dims")] = "ndims"
+        mapping[("MPI_Cart_create", "periods")] = "ndims"
+        mapping[("MPI_Cart_map", "dims")] = "ndims"
+        mapping[("MPI_Cart_map", "periods")] = "ndims"
+        mapping[("MPI_Cart_rank", "coords")] = "1" #no idea how to get the ndims of a cart comm!!
+        mapping[("MPI_Cart_sub", "remain_dims")] = "1" # no idea how to get ndims of a cart comm!!
+        mapping[("MPI_Dist_graph_create", "nodes")] = "n"
+        mapping[("MPI_Dist_graph_create", "degrees")] = "n"
+        mapping[("MPI_Dist_graph_create", "targets")] = "n"
+        mapping[("MPI_Dist_graph_create", "weights")] = "n"
+        mapping[("MPI_Dist_graph_create_adjacent", "sources")] = "indegree"
+        mapping[("MPI_Dist_graph_create_adjacent", "sourceweights")] = "indegree"
+        mapping[("MPI_Dist_graph_create_adjacent", "destinations")] = "outdegree"
+        mapping[("MPI_Dist_graph_create_adjacent", "destweights")] = "outdegree"
+        mapping[("MPI_Comm_spawn_multiple", "array_of_maxprocs")] = "count"
+        mapping[("MPI_Graph_create", "index")] = "nnodes"
+        mapping[("MPI_Graph_create", "edges")] = "nnodes" # not sure
+        mapping[("MPI_Graph_map", "index")] = "nnodes"
+        mapping[("MPI_Graph_map", "edges")] = "nnodes" #not sure
+        mapping[("MPI_Group_excl", "ranks")] = "n"
+        mapping[("MPI_Group_incl", "ranks")] = "n"
+        mapping[("MPI_Group_translate_ranks", "ranks1")] = "n"
+        mapping[("MPI_Type_create_darray", "gsize_array")] = "ndims"
+        mapping[("MPI_Type_create_darray", "distrib_array")] = "ndims"
+        mapping[("MPI_Type_create_darray", "darg_array")] = "ndims"
+        mapping[("MPI_Type_create_darray", "psize_array")] = "ndims"
+        mapping[("MPI_Type_create_hindexed", "array_of_blocklengths")] = "count"
+        mapping[("MPI_Type_create_indexed_block", "array_of_displacements")] = "count"
+        mapping[("MPI_Type_create_struct", "array_of_block_lengths")] = "count"
+        mapping[("MPI_Type_create_subarray", "size_array")] = "ndims"
+        mapping[("MPI_Type_create_subarray", "subsize_array")] = "ndims"
+        mapping[("MPI_Type_create_subarray", "start_array")] = "ndims"
+        mapping[("MPI_Type_indexed", "array_of_blocklengths")] = "count"
+        mapping[("MPI_Type_indexed", "array_of_displacements")] = "count"
+        return mapping[(func, param)]
+
     def generate_trace_code_for_arg(self, param_type, param_name, function_name):
+        if function_name.startswith("MPI_T_"):
+            return "" #ignore tool interface
         trace_code = "  {\n"
         if param_type == "int":
             trace_code += f"  WRITE_TRACE(\"%i:\", {param_name});\n"
@@ -49,11 +93,16 @@ class AllprofCodegen:
             trace_code += f"  WRITE_TRACE(\"%i:\", *{param_name});\n"
         elif param_type == "const int[]":
             if param_name.endswith("displs") or param_name.endswith("counts"):
-                trace_code += "for (int i=0; i<comm_size-1; i++) {\n"
-                trace_code += f"  WRITE_TRACE(\"%i,\", {param_name}[i])\n"
-                trace_code += "}\n"
+                trace_code += "  int comm_size;\n"
+                trace_code += "  PMPI_Comm_size(comm, &comm_size);\n"
+                trace_code += "  for (int i=0; i<comm_size-1; i++) {\n"
+                trace_code += f"    WRITE_TRACE(\"%i,\", {param_name}[i]);\n"
+                trace_code += "  }\n"
             else:
-                trace_code += "FIXME"
+                count = self.get_count_for_param_in_func(param_name, function_name)
+                trace_code += f"  for (int i=0; i<{count}; i++)"+" {\n"
+                trace_code += f"    WRITE_TRACE(\"%i,\", {param_name}[i]);\n"
+                trace_code += "  }\n"
         elif param_type.endswith("void *"):
             trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
         elif param_type.endswith("char *"):
@@ -66,10 +115,25 @@ class AllprofCodegen:
             trace_code += f"  MPI_Fint c2f_info;"
             trace_code += f"  c2f_info = PMPI_Info_c2f({param_name});"
             trace_code += f"  WRITE_TRACE(\"%lli\", (long long int) c2f_info);\n"
+        elif param_type == "MPI_Info *":
+            trace_code += f"  MPI_Fint c2f_info;"
+            trace_code += f"  c2f_info = PMPI_Info_c2f(*{param_name});"
+            trace_code += f"  WRITE_TRACE(\"%lli\", (long long int) c2f_info);\n"
         elif param_type == "MPI_Message":
             trace_code += f"  MPI_Fint c2f_message;"
             trace_code += f"  c2f_message = PMPI_Message_c2f({param_name});"
             trace_code += f"  WRITE_TRACE(\"%lli\", (long long int) c2f_message);\n" 
+        elif param_type == "MPI_Message *":
+            trace_code += f"  MPI_Fint c2f_message;"
+            trace_code += f"  c2f_message = PMPI_Message_c2f(*{param_name});"
+            trace_code += f"  WRITE_TRACE(\"%lli\", (long long int) c2f_message);\n" 
+ 
+        elif param_type == "MPI_Errhandler":
+            trace_code += f"  WRITE_TRACE(\"%p\", (long long int) &{param_name});\n" 
+        elif param_type == "MPI_Errhandler *":
+            trace_code += f"  WRITE_TRACE(\"%p\", (long long int) {param_name});\n" 
+
+
         elif param_type == "MPI_Datatype":
             trace_code += f"  int ddtsize;\n"
             trace_code += f"  PMPI_Type_size({param_name}, &ddtsize);\n"
@@ -81,8 +145,10 @@ class AllprofCodegen:
                 trace_code += f"  int ddtsize;\n"
                 trace_code += f"  PMPI_Type_size(*{param_name}, &ddtsize);\n"
                 trace_code += f"  WRITE_TRACE(\"%i:\", ddtsize);\n"
+        
         elif param_type.endswith("_function *"):
             trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
+        
         elif param_type == "MPI_Win":
             # We set an info key in any function creating a new win. These keys are NOT guranteed to be globally unique, only per comm_world rank!
             trace_code += f"  int win_id=-1, val_present=0;\n"
@@ -94,7 +160,7 @@ class AllprofCodegen:
                 trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
             else:
                 trace_code += f"  int win_id=-1, val_present=0;\n"
-                trace_code += f"  PMPI_Win_get_attr({param_name}, COMMID_KEY, &win_id, &val_present);\n"
+                trace_code += f"  PMPI_Win_get_attr(*{param_name}, COMMID_KEY, &win_id, &val_present);\n"
                 trace_code += f"  WRITE_TRACE(\"%i:\", win_id);\n"
                 trace_code += f"  assert(val_present);\n"
 
@@ -106,12 +172,6 @@ class AllprofCodegen:
             trace_code += f"  PMPI_Comm_rank({param_name}, &comm_rank);\n"
             trace_code += f"  PMPI_Comm_size({param_name}, &comm_size);\n"
             trace_code += f"  WRITE_TRACE(\"%i,%i,%i:\", comm_id, comm_rank, comm_size);\n"
-        elif param_type == "MPI_Group":
-            trace_code += f"  int group_c2f, comm_rank, comm_size;\n"
-            trace_code += f"  group_c2f = PMPI_Group_c2f({param_name});\n"
-            trace_code += f"  PMPI_Group_rank({param_name}, &group_rank);\n"
-            trace_code += f"  PMPI_Group_size({param_name}, &group_size);\n"
-            trace_code += f"  WRITE_TRACE(\"%i,%i,%i:\", group_c2f, group_rank, group_size);\n"
         elif param_type == "MPI_Comm *":
             if function_name.endswith("_free"):
                 trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
@@ -122,17 +182,36 @@ class AllprofCodegen:
                 trace_code += f"  PMPI_Comm_get_attr(*{param_name}, COMMID_KEY, &comm_id, &val_present);\n"
                 trace_code += f"  WRITE_TRACE(\"%i:\", comm_id);\n"
                 trace_code += f"  assert(val_present);\n"
+
+        elif param_type == "MPI_Group":
+            trace_code += f"  int group_c2f, group_rank, group_size;\n"
+            trace_code += f"  group_c2f = PMPI_Group_c2f({param_name});\n"
+            trace_code += f"  PMPI_Group_rank({param_name}, &group_rank);\n"
+            trace_code += f"  PMPI_Group_size({param_name}, &group_size);\n"
+            trace_code += f"  WRITE_TRACE(\"%i,%i,%i:\", group_c2f, group_rank, group_size);\n"
+        elif param_type == "MPI_Group *":
+            if function_name.endswith("_free"):
+                trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
+            else:
+                trace_code += f"  int group_c2f, group_rank, group_size;\n"
+                trace_code += f"  group_c2f = PMPI_Group_c2f(*{param_name});\n"
+                trace_code += f"  PMPI_Group_rank(*{param_name}, &group_rank);\n"
+                trace_code += f"  PMPI_Group_size(*{param_name}, &group_size);\n"
+                trace_code += f"  WRITE_TRACE(\"%i,%i,%i:\", group_c2f, group_rank, group_size);\n"
+
         elif param_type in ["MPI_Aint", "MPI_Offset", "MPI_Op", "MPI_Count"]:
             trace_code += f"  WRITE_TRACE(\"%llu:\", (long long unsigned int) {param_name});\n"
-        elif param_type in ["MPI_Aint *", "MPI_Count *"]:
+        elif param_type in ["MPI_Aint *", "MPI_Count *", "MPI_Offset *"]:
             trace_code += f"  WRITE_TRACE(\"%llu:\", (long long unsigned int) *{param_name});\n"
-        elif param_type == "MPI_Request *":
+        elif param_type in ["const MPI_Aint[]"]:
+            trace_code += f"  WRITE_TRACE(\"%llu:\", (long long unsigned int) *{param_name});\n"
+        elif param_type in ["MPI_Request *", "MPI_Request[]"]:
             trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
-        elif param_type == "MPI_Status *":
+        elif param_type in ["MPI_Status *", "MPI_Status[]", "const MPI_Status *"]:
             trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
         else:
-            #print(f"Tracing for [{param_type}] not implemented! (appears in {function_name})")
-            print(f"Tracing for [{param_type}] not implemented!")
+            print(f"Tracing for [{param_type}] not implemented! (appears in {function_name})")
+            #print(f"Tracing for [{param_type}] not implemented!")
         trace_code += "  }\n"
         return trace_code
 
@@ -176,7 +255,7 @@ class AllprofCodegen:
         self.outfile.write("}\n\n")
 
     def process_header(self, filename):
-        clang.cindex.Config.set_library_path('/opt/homebrew/opt/llvm/lib')  # Update with the actual library path
+        clang.cindex.Config.set_library_path(self.libclang_path)
         index = clang.cindex.Index.create()
         translation_unit = index.parse(filename)
         if not translation_unit:
@@ -199,10 +278,20 @@ class AllprofCodegen:
         self.outfile.write("\n\n")
 
 if __name__ == "__main__":
-    codegen = AllprofCodegen()
-    codegen.outfile = open("foo.c", "w")
+    parser = argparse.ArgumentParser(
+                    prog='liballprof_gencode',
+                    description='Generates wrappers for the MPI functions present in the supplied MPI header file. The wrappers output in liballprof2 trace format.',
+                    epilog='')
+    parser.add_argument('-m', '--mpi-header',          default="mpi.h",           help="MPI header file to use as input")
+    parser.add_argument('-c','--c-output-file',        default="mpi_wrapper.c",   help="Name of the generated C file.")
+    parser.add_argument('-f', '--fortran-output-file', default="f90_wrapper.f90", help="Name of the generated FORTRAN file.")
+    parser.add_argument('-l', '--libclang-path',       default="",                help="Path to libclang")
+    args = parser.parse_args()
+
+    codegen = AllprofCodegen(libclang_path=args.libclang_path)
+    codegen.outfile = open(args.c_output_file, "w")
     codegen.write_prolog()
-    codegen.process_header("mpi.h")
+    codegen.process_header(args.mpi_header)
     codegen.outfile.close()
     #for k in codegen.types:
     #    print(k + " appears in "+str(codegen.types[k]) +"\n")
