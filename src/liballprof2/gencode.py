@@ -65,21 +65,21 @@ class AllprofCodegen:
         else:
             return (typestr, "")
 
-    def tracer_for_simple_arg(self, name, typestr):
+    def tracer_for_simple_arg(self, name, typestr, sep=":"):
         if typestr.startswith("const "):
             typestr = typestr[6:]
         if typestr == "int":
-            return f"WRITE_TRACE(\"%i:\", {name});\n"
+            return f"WRITE_TRACE(\"%i{sep}\", {name});\n"
         if typestr in ["MPI_Aint", "MPI_Count", "MPI_Offset"]:
-            return f"WRITE_TRACE(\"%lli:\", {name});\n"
+            return f"WRITE_TRACE(\"%lli{sep}\", {name});\n"
         elif typestr == "int *":
-            return f"WRITE_TRACE(\"%i:\", *{name});\n"
+            return f"WRITE_TRACE(\"%i{sep}\", *{name});\n"
         elif typestr in ["MPI_Aint *", "MPI_Count *", "MPI_Offset *"] :
-            return f"WRITE_TRACE(\"%lli:\", *{name});\n"
+            return f"WRITE_TRACE(\"%lli{sep}\", *{name});\n"
         elif typestr == "void *":
-            return f"WRITE_TRACE(\"%p:\", {name});\n"
+            return f"WRITE_TRACE(\"%p{sep}\", {name});\n"
         elif typestr.startswith("char *"):
-            return f"WRITE_TRACE(\"%p:\", {name});\n"
+            return f"WRITE_TRACE(\"%p{sep}\", {name});\n"
         elif typestr == "MPI_Comm":
             trace_code = ""
             # We set an info key in any function creating a new comm. These keys are NOT guranteed to be globally unique, only per comm_world rank!
@@ -89,29 +89,45 @@ class AllprofCodegen:
             trace_code += f"  assert(val_present);\n"
             trace_code += f"  PMPI_Comm_rank({name}, &comm_rank);\n"
             trace_code += f"  PMPI_Comm_size({name}, &comm_size);\n"
-            trace_code += f"  WRITE_TRACE(\"%i,%i,%i:\", comm_id, comm_rank, comm_size);\n"
+            trace_code += f"  WRITE_TRACE(\"%i,%i,%i{sep}\", comm_id, comm_rank, comm_size);\n"
+            trace_code += "}\n"
+            return trace_code
+        elif typestr == "MPI_Comm *":
+            trace_code = ""
+            # We set an info key in any function creating a new comm. These keys are NOT guranteed to be globally unique, only per comm_world rank!
+            trace_code += "{\n"
+            trace_code += f"  int comm_id, val_present, comm_rank, comm_size;\n"
+            if ("new" in name) or ("graph" in name):
+                trace_code += f"  PMPI_Comm_set_attr(*{name}, COMMID_KEY, &next_comm_id);"
+                trace_code += f"  next_commid += 1;"
+            trace_code += f"  PMPI_Comm_get_attr(*{name}, COMMID_KEY, &comm_id, &val_present);\n"
+            trace_code += f"  assert(val_present);\n"
+            trace_code += f"  PMPI_Comm_rank(*{name}, &comm_rank);\n"
+            trace_code += f"  PMPI_Comm_size(*{name}, &comm_size);\n"
+            trace_code += f"  WRITE_TRACE(\"%i,%i,%i{sep}\", comm_id, comm_rank, comm_size);\n"
             trace_code += "}\n"
             return trace_code
         elif typestr == "MPI_Datatype":
             trace_code = "{\n"
             trace_code += f"  int ddtsize;\n"
             trace_code += f"  PMPI_Type_size({name}, &ddtsize);\n"
-            trace_code += f"  WRITE_TRACE(\"%i:\", ddtsize);\n"
+            trace_code += f"  WRITE_TRACE(\"%i{sep}\", ddtsize);\n"
             trace_code += "}\n"
         elif typestr == "MPI_Datatype *":
             trace_code = "{\n"
             trace_code += f"  int ddtsize;\n"
             trace_code += f"  PMPI_Type_size(*{name}, &ddtsize);\n"
-            trace_code += f"  WRITE_TRACE(\"%i:\", ddtsize);\n"
+            trace_code += f"  WRITE_TRACE(\"%i{sep}\", ddtsize);\n"
             trace_code += "}\n"
             return trace_code
         elif typestr.endswith("_function *"):
-            return f"WRITE_TRACE(\"%p:\", {name});\n"
+            return f"WRITE_TRACE(\"%p{sep}\", {name});\n"
         else:
-            print(f"{typestr} tracer not implemmented")
+            print(f"{typestr} tracer not implemmented ({name})")
         return ""
 
     def write_argument_tracers(self, func, mode):
+        #TODO do not emit the same prolog multiple times
         for sem_param in self.semantics[func]['params']:
             if ('elem_count' in sem_param) and (sem_param['prolog_elem_count'] is not None):
                 # this argument contains multiple elements
@@ -119,8 +135,14 @@ class AllprofCodegen:
                     self.outfile.write("{\n")
                     self.outfile.write(f"  {sem_param['prolog_elem_count']}\n")
                 self.outfile.write(f"  for (int trace_elem_idx=0; trace_elem_idx<{sem_param['elem_count']}; trace_elem_idx++) "+"{\n")
+                # emit the tracer for the simplified arg
+                name = sem_param['name'] + "[trace_elem_idx]"
+                typestr = sem_param['type'][0:-2]
+                code = self.tracer_for_simple_arg(name, typestr, sep=";")
+                self.outfile.write("    "+code)
                 self.outfile.write("  }\n")
                 if ('prolog_elem_count' in sem_param) and (sem_param['prolog_elem_count'] is not None):
+                    self.outfile.write("WRITE_TRACE(\":\", 0);\n")
                     self.outfile.write("}\n")
                 if ('elem_count' in sem_param) and (sem_param['prolog_elem_count'] is None):
                     self.outfile.write(f"WRITE_TRACE(\"%p:\", {sem_param['name']});\n")
@@ -130,15 +152,21 @@ class AllprofCodegen:
 
     def produce_tracers(self, mode='c'):
         for func in self.semantics:
+            delay_pmpi = False # usually we write the trace after the pmpi call, however, if the function frees some of its arguments we want to do it before
             param_signatures = []
             for param in self.semantics[func]['params']:
                 type_prefix, type_suffix = self.split_type(param['type'])
                 param_signatures.append(f"{type_prefix} {param['name']}{type_suffix}")
+            if func.endswith("_free") or ("_delete_" in func):
+                delay_pmpi = True
             params = ", ".join(param_signatures) 
             self.outfile.write(f"{self.semantics[func]['return_type']} {func} ({params})"+" {\n")
             self.write_tracer_prolog(func, mode)
-            self.write_pmpi_call(func, mode)
+            if not delay_pmpi:
+                self.write_pmpi_call(func, mode)
             self.write_argument_tracers(func, mode)
+            if delay_pmpi:
+                self.write_pmpi_call(func, mode)
             self.write_tracer_epilog(func, mode)
             self.outfile.write("}\n")
 
