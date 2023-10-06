@@ -26,9 +26,14 @@ class AllprofCodegen:
             self.outfile.write("#include <string.h>\n")
             self.outfile.write("\n")
             self.outfile.write("#define WRITE_TRACE(fmt, args...) printf(fmt, args)\n")
-            self.outfile.write("#define COMMID_KEY 1234\n")
-            self.outfile.write("#define WINID_KEY 2234\n")
+            self.outfile.write("int COMMID_KEY = 1234;\n")
+            self.outfile.write("int WINID_KEY = 2234;\n")
             self.outfile.write("int next_commid = 0;\n")
+            # TODO move to MPI_Init!
+            #self.outfile.write("MPI_Comm_create_keyval( MPI_NULL_COPY_FN, MPI_NULL_DELETE_FN, &COMMID_KEY, (void *)0 );\n")
+            #self.outfile.write("MPI_Comm_set_attr(MPI_COMM_WORLD, COMMID_KEY, &next_commid);\n")
+            #self.outfile.write("MPI_Win_create_keyval(MPI_NULL_COPY_FN, MPI_NULL_DELETE_FN, &WINID_KEY, (void *)0 );\n")
+        
             self.outfile.write("\n\n")
         else:
             raise NotImplementedError(f"Mode {mode} not implemented!")
@@ -65,17 +70,21 @@ class AllprofCodegen:
         else:
             return (typestr, "")
 
-    def tracer_for_simple_arg(self, name, typestr, sep=":"):
+    def tracer_for_simple_arg(self, name, typestr, func, sep=":"):
         if typestr.startswith("const "):
             typestr = typestr[6:]
         if typestr == "int":
             return f"WRITE_TRACE(\"%i{sep}\", {name});\n"
+        if typestr == "int[3]":
+            return f"WRITE_TRACE(\"[%i,%i,%i]{sep}\", {name}[0], {name}[1], {name}[2]);\n"
+        if typestr == "char":
+            return f"WRITE_TRACE(\"%c{sep}\", {name});\n"
         if typestr in ["MPI_Aint", "MPI_Count", "MPI_Offset"]:
-            return f"WRITE_TRACE(\"%lli{sep}\", {name});\n"
+            return f"WRITE_TRACE(\"%lli{sep}\", (long long int) {name});\n"
         elif typestr == "int *":
             return f"WRITE_TRACE(\"%i{sep}\", *{name});\n"
         elif typestr in ["MPI_Aint *", "MPI_Count *", "MPI_Offset *"] :
-            return f"WRITE_TRACE(\"%lli{sep}\", *{name});\n"
+            return f"WRITE_TRACE(\"%lli{sep}\", (long long int) *{name});\n"
         elif typestr == "void *":
             return f"WRITE_TRACE(\"%p{sep}\", {name});\n"
         elif typestr.startswith("char *"):
@@ -98,7 +107,7 @@ class AllprofCodegen:
             trace_code += "{\n"
             trace_code += f"  int comm_id, val_present, comm_rank, comm_size;\n"
             if ("new" in name) or ("graph" in name):
-                trace_code += f"  PMPI_Comm_set_attr(*{name}, COMMID_KEY, &next_comm_id);"
+                trace_code += f"  PMPI_Comm_set_attr(*{name}, COMMID_KEY, &next_commid);"
                 trace_code += f"  next_commid += 1;"
             trace_code += f"  PMPI_Comm_get_attr(*{name}, COMMID_KEY, &comm_id, &val_present);\n"
             trace_code += f"  assert(val_present);\n"
@@ -106,6 +115,34 @@ class AllprofCodegen:
             trace_code += f"  PMPI_Comm_size(*{name}, &comm_size);\n"
             trace_code += f"  WRITE_TRACE(\"%i,%i,%i{sep}\", comm_id, comm_rank, comm_size);\n"
             trace_code += "}\n"
+            return trace_code
+        elif typestr == "MPI_Win":
+            trace_code = "{\n"
+            trace_code += f"  int win_id, val_present;\n"
+            trace_code += f"  PMPI_Win_get_attr({name}, WINID_KEY, &win_id, &val_present);\n"
+            trace_code += f"  WRITE_TRACE(\"%i{sep}\", win_id);\n"
+            trace_code += "}\n"
+            return trace_code
+        elif typestr == "MPI_Win *":
+            # TODO actually set the info key in all functions creating a window
+            trace_code = "{\n"
+            trace_code += f"  int win_id, val_present;\n"
+            trace_code += f"  PMPI_Win_get_attr(*{name}, WINID_KEY, &win_id, &val_present);\n"
+            trace_code += f"  WRITE_TRACE(\"%i{sep}\", win_id);\n"
+            trace_code += "}\n"
+            return trace_code
+        elif typestr == "MPI_Info":
+            trace_code = f"  WRITE_TRACE(\"%llu{sep}\", (long long unsigned int) {name});\n"
+            return trace_code
+        elif typestr == "MPI_Request *": #maybe also find out if this is REQUEST_NULL?
+            trace_code = f"  WRITE_TRACE(\"%p{sep}\", {name});\n"
+        elif typestr == "MPI_Request": #maybe also find out if this is REQUEST_NULL?
+            trace_code = f"  WRITE_TRACE(\"%p{sep}\", &{name});\n"
+            return trace_code
+        elif typestr == "MPI_Status *": #maybe also find out if this is STATUS_IGNORE?
+            trace_code = f"  WRITE_TRACE(\"%p{sep}\", {name});\n"
+        elif typestr == "MPI_Status": #maybe also find out if this is STATUS_IGNORE?
+            trace_code = f"  WRITE_TRACE(\"%p{sep}\", &{name});\n"
             return trace_code
         elif typestr == "MPI_Datatype":
             trace_code = "{\n"
@@ -122,14 +159,39 @@ class AllprofCodegen:
             return trace_code
         elif typestr.endswith("_function *"):
             return f"WRITE_TRACE(\"%p{sep}\", {name});\n"
+        elif typestr == "MPI_Group":
+            trace_code = f"WRITE_TRACE(\"%i\", PMPI_Group_c2f({name}));"
+        elif typestr == "MPI_Group *":
+            trace_code = f"WRITE_TRACE(\"%i\", PMPI_Group_c2f(*{name}));"
+        elif typestr == "MPI_File":
+            trace_code = f"WRITE_TRACE(\"%i\", PMPI_File_c2f({name}));"
+        elif typestr == "MPI_File *":
+            trace_code = f"WRITE_TRACE(\"%i\", PMPI_File_c2f(*{name}));"
+        elif typestr == "MPI_Info":
+            trace_code = f"WRITE_TRACE(\"%i\", PMPI_Info_c2f({name}));"
+        elif typestr == "MPI_Info *":
+            trace_code = f"WRITE_TRACE(\"%i\", PMPI_Info_c2f(*{name}));"
+        elif typestr == "MPI_Op":
+            trace_code = f"WRITE_TRACE(\"%i\", PMPI_Op_c2f({name}));"
+        elif typestr == "MPI_Op *":
+            trace_code = f"WRITE_TRACE(\"%i\", PMPI_Op_c2f(*{name}));"
+        elif typestr == "MPI_Errhandler":
+            trace_code = f"WRITE_TRACE(\"%i\", PMPI_Errhandler_c2f({name}));"
+        elif typestr == "MPI_Errhandler *":
+            trace_code = f"WRITE_TRACE(\"%i\", PMPI_Errhandler_c2f(*{name}));"
+        elif typestr == "MPI_Message":
+            trace_code = f"WRITE_TRACE(\"%i\", PMPI_Message_c2f({name}));"
+        elif typestr == "MPI_Message *":
+            trace_code = f"WRITE_TRACE(\"%i\", PMPI_Message_c2f(*{name}));"
         else:
-            print(f"{typestr} tracer not implemmented ({name})")
+            print(f"{typestr} tracer not implemmented (appears in {func})")
         return ""
 
     def write_argument_tracers(self, func, mode):
         #TODO do not emit the same prolog multiple times
         for sem_param in self.semantics[func]['params']:
-            if ('elem_count' in sem_param) and (sem_param['prolog_elem_count'] is not None):
+            #print(sem_param)
+            if ('elem_count' in sem_param) and sem_param['elem_count'] is not None:
                 # this argument contains multiple elements
                 if ('prolog_elem_count' in sem_param) and (sem_param['prolog_elem_count'] is not None):
                     self.outfile.write("{\n")
@@ -137,17 +199,18 @@ class AllprofCodegen:
                 self.outfile.write(f"  for (int trace_elem_idx=0; trace_elem_idx<{sem_param['elem_count']}; trace_elem_idx++) "+"{\n")
                 # emit the tracer for the simplified arg
                 name = sem_param['name'] + "[trace_elem_idx]"
-                typestr = sem_param['type'][0:-2]
-                code = self.tracer_for_simple_arg(name, typestr, sep=";")
+                basetype, brackets = self.split_type(sem_param['type'])
+                typestr = basetype + brackets[2:]
+                code = self.tracer_for_simple_arg(name, typestr, func, sep=";")
                 self.outfile.write("    "+code)
                 self.outfile.write("  }\n")
                 if ('prolog_elem_count' in sem_param) and (sem_param['prolog_elem_count'] is not None):
-                    self.outfile.write("WRITE_TRACE(\":\", 0);\n")
+                    self.outfile.write("WRITE_TRACE(\"\%s\", \":\");\n")
                     self.outfile.write("}\n")
                 if ('elem_count' in sem_param) and (sem_param['prolog_elem_count'] is None):
                     self.outfile.write(f"WRITE_TRACE(\"%p:\", {sem_param['name']});\n")
             else:
-                code = self.tracer_for_simple_arg(sem_param['name'], sem_param['type'])
+                code = self.tracer_for_simple_arg(sem_param['name'], sem_param['type'], func, sep=":")
                 self.outfile.write("  " + code)
 
     def produce_tracers(self, mode='c'):
