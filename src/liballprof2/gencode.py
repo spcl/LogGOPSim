@@ -4,294 +4,158 @@ import re
 import clang.cindex
 import argparse
 from collections import defaultdict
+import yaml
 
 class AllprofCodegen:
 
-    def __init__(self, libclang_path):
-        self.libclang_path=libclang_path
-        self.nodes = []
-        self.types = defaultdict(list)
-        self.BLACKLISTED_FUNCTIONS = [
-            'MPI_Pcontrol', #this function is not "forwardable" without more context, so we do not generate a wrapper for it
-        ]
+    def __init__(self):
+        self.semantics = {}
 
-    def generate_pmpi_call(self, cursor):
-        function_name = cursor.spelling
-        return_type = cursor.result_type.spelling
-        
-        parameters = []
-        for param_cursor in cursor.get_children():
-            if param_cursor.kind == clang.cindex.CursorKind.PARM_DECL:
-                param_name = param_cursor.spelling
-                parameters.append(f"{param_name}")
-        pmpi_code = f"  {return_type} retval = P{function_name}({', '.join(parameters)});\n"
-        return pmpi_code
-  
-    
-    def generate_trace_code_prolog(self, cursor):
-        function_name = cursor.spelling
-        prolog_code  = f"  WRITE_TRACE(\"%s\", \"{function_name}\");\n"
-        prolog_code += f"  WRITE_TRACE(\"%0.2f:\", PMPI_Wtime()*1e6);\n"
-        return prolog_code
+    def parse_semantics(self, semfile):
+        with open(semfile, "r") as stream:
+            try:
+                self.semantics = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
 
-    def generate_trace_code_epilog(self, cursor):
-        function_name = cursor.spelling
-        epilog_code = ""
-        for param_cursor in cursor.get_children():
-            if param_cursor.kind == clang.cindex.CursorKind.PARM_DECL:
-                param_type = param_cursor.type.spelling
-                param_name = param_cursor.spelling
-                epilog_code += self.generate_trace_code_for_arg(param_type, param_name, function_name)
-        epilog_code += f"  WRITE_TRACE(\"%0.2f\\n\", PMPI_Wtime()*1e6);\n"
-        return epilog_code
-
-    def get_count_for_param_in_func(self, param, func):
-        mapping = {}
-        mapping[("MPI_Cart_create", "dims")] = "ndims"
-        mapping[("MPI_Cart_create", "periods")] = "ndims"
-        mapping[("MPI_Cart_map", "dims")] = "ndims"
-        mapping[("MPI_Cart_map", "periods")] = "ndims"
-        mapping[("MPI_Cart_rank", "coords")] = "1" #no idea how to get the ndims of a cart comm!!
-        mapping[("MPI_Cart_sub", "remain_dims")] = "1" # no idea how to get ndims of a cart comm!!
-        mapping[("MPI_Dist_graph_create", "nodes")] = "n"
-        mapping[("MPI_Dist_graph_create", "degrees")] = "n"
-        mapping[("MPI_Dist_graph_create", "targets")] = "n"
-        mapping[("MPI_Dist_graph_create", "weights")] = "n"
-        mapping[("MPI_Dist_graph_create_adjacent", "sources")] = "indegree"
-        mapping[("MPI_Dist_graph_create_adjacent", "sourceweights")] = "indegree"
-        mapping[("MPI_Dist_graph_create_adjacent", "destinations")] = "outdegree"
-        mapping[("MPI_Dist_graph_create_adjacent", "destweights")] = "outdegree"
-        mapping[("MPI_Comm_spawn_multiple", "array_of_maxprocs")] = "count"
-        mapping[("MPI_Graph_create", "index")] = "nnodes"
-        mapping[("MPI_Graph_create", "edges")] = "nnodes" # not sure
-        mapping[("MPI_Graph_map", "index")] = "nnodes"
-        mapping[("MPI_Graph_map", "edges")] = "nnodes" #not sure
-        mapping[("MPI_Group_excl", "ranks")] = "n"
-        mapping[("MPI_Group_incl", "ranks")] = "n"
-        mapping[("MPI_Group_translate_ranks", "ranks1")] = "n"
-        mapping[("MPI_Type_create_darray", "gsize_array")] = "ndims"
-        mapping[("MPI_Type_create_darray", "distrib_array")] = "ndims"
-        mapping[("MPI_Type_create_darray", "darg_array")] = "ndims"
-        mapping[("MPI_Type_create_darray", "psize_array")] = "ndims"
-        mapping[("MPI_Type_create_hindexed", "array_of_blocklengths")] = "count"
-        mapping[("MPI_Type_create_indexed_block", "array_of_displacements")] = "count"
-        mapping[("MPI_Type_create_struct", "array_of_block_lengths")] = "count"
-        mapping[("MPI_Type_create_subarray", "size_array")] = "ndims"
-        mapping[("MPI_Type_create_subarray", "subsize_array")] = "ndims"
-        mapping[("MPI_Type_create_subarray", "start_array")] = "ndims"
-        mapping[("MPI_Type_indexed", "array_of_blocklengths")] = "count"
-        mapping[("MPI_Type_indexed", "array_of_displacements")] = "count"
-        return mapping[(func, param)]
-
-    def generate_trace_code_for_arg(self, param_type, param_name, function_name):
-        if function_name.startswith("MPI_T_"):
-            return "" #ignore tool interface
-        trace_code = "  {\n"
-        if param_type == "int":
-            trace_code += f"  WRITE_TRACE(\"%i:\", {param_name});\n"
-        elif param_type == "int *":
-            trace_code += f"  WRITE_TRACE(\"%i:\", *{param_name});\n"
-        elif param_type == "const int[]":
-            if param_name.endswith("displs") or param_name.endswith("counts"):
-                trace_code += "  int comm_size;\n"
-                trace_code += "  PMPI_Comm_size(comm, &comm_size);\n"
-                trace_code += "  for (int i=0; i<comm_size-1; i++) {\n"
-                trace_code += f"    WRITE_TRACE(\"%i,\", {param_name}[i]);\n"
-                trace_code += "  }\n"
-            else:
-                count = self.get_count_for_param_in_func(param_name, function_name)
-                trace_code += f"  for (int i=0; i<{count}; i++)"+" {\n"
-                trace_code += f"    WRITE_TRACE(\"%i,\", {param_name}[i]);\n"
-                trace_code += "  }\n"
-        elif param_type.endswith("void *"):
-            trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
-        elif param_type.endswith("char *"):
-            trace_code += f"  WRITE_TRACE(\"%s:\", {param_name});\n"
-        elif param_type == "MPI_File":
-            trace_code += f"  MPI_Fint c2f_file;"
-            trace_code += f"  c2f_file = PMPI_File_c2f({param_name});"
-            trace_code += f"  WRITE_TRACE(\"%lli\", (long long int) c2f_file);\n"
-        elif param_type == "MPI_Info":
-            trace_code += f"  MPI_Fint c2f_info;"
-            trace_code += f"  c2f_info = PMPI_Info_c2f({param_name});"
-            trace_code += f"  WRITE_TRACE(\"%lli\", (long long int) c2f_info);\n"
-        elif param_type == "MPI_Info *":
-            trace_code += f"  MPI_Fint c2f_info;"
-            trace_code += f"  c2f_info = PMPI_Info_c2f(*{param_name});"
-            trace_code += f"  WRITE_TRACE(\"%lli\", (long long int) c2f_info);\n"
-        elif param_type == "MPI_Message":
-            trace_code += f"  MPI_Fint c2f_message;"
-            trace_code += f"  c2f_message = PMPI_Message_c2f({param_name});"
-            trace_code += f"  WRITE_TRACE(\"%lli\", (long long int) c2f_message);\n" 
-        elif param_type == "MPI_Message *":
-            trace_code += f"  MPI_Fint c2f_message;"
-            trace_code += f"  c2f_message = PMPI_Message_c2f(*{param_name});"
-            trace_code += f"  WRITE_TRACE(\"%lli\", (long long int) c2f_message);\n" 
- 
-        elif param_type == "MPI_Errhandler":
-            trace_code += f"  WRITE_TRACE(\"%p\", (long long int) &{param_name});\n" 
-        elif param_type == "MPI_Errhandler *":
-            trace_code += f"  WRITE_TRACE(\"%p\", (long long int) {param_name});\n" 
-
-
-        elif param_type == "MPI_Datatype":
-            trace_code += f"  int ddtsize;\n"
-            trace_code += f"  PMPI_Type_size({param_name}, &ddtsize);\n"
-            trace_code += f"  WRITE_TRACE(\"%i:\", ddtsize);\n"
-        elif param_type == "MPI_Datatype *":
-            if function_name.endswith("_free"):
-                trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
-            else:
-                trace_code += f"  int ddtsize;\n"
-                trace_code += f"  PMPI_Type_size(*{param_name}, &ddtsize);\n"
-                trace_code += f"  WRITE_TRACE(\"%i:\", ddtsize);\n"
-        
-        elif param_type.endswith("_function *"):
-            trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
-        
-        elif param_type == "MPI_Win":
-            # We set an info key in any function creating a new win. These keys are NOT guranteed to be globally unique, only per comm_world rank!
-            trace_code += f"  int win_id=-1, val_present=0;\n"
-            trace_code += f"  PMPI_Win_get_attr({param_name}, WINID_KEY, &win_id, &val_present);\n"
-            trace_code += f"  WRITE_TRACE(\"%i:\", win_id);\n"
-            trace_code += f"  assert(val_present);\n"
-        elif param_type == "MPI_Win *":
-            if function_name.endswith("_free"):
-                trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
-            else:
-                trace_code += f"  int win_id=-1, val_present=0;\n"
-                trace_code += f"  PMPI_Win_get_attr(*{param_name}, COMMID_KEY, &win_id, &val_present);\n"
-                trace_code += f"  WRITE_TRACE(\"%i:\", win_id);\n"
-                trace_code += f"  assert(val_present);\n"
-
-        elif param_type == "MPI_Comm":
-            # We set an info key in any function creating a new comm. These keys are NOT guranteed to be globally unique, only per comm_world rank!
-            trace_code += f"  int comm_id, val_present, comm_rank, comm_size;\n"
-            trace_code += f"  PMPI_Comm_get_attr({param_name}, COMMID_KEY, &comm_id, &val_present);\n"
-            trace_code += f"  assert(val_present);\n"
-            trace_code += f"  PMPI_Comm_rank({param_name}, &comm_rank);\n"
-            trace_code += f"  PMPI_Comm_size({param_name}, &comm_size);\n"
-            trace_code += f"  WRITE_TRACE(\"%i,%i,%i:\", comm_id, comm_rank, comm_size);\n"
-        elif param_type == "MPI_Comm *":
-            if function_name.endswith("_free"):
-                trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
-            else:
-                trace_code += f"  int comm_id, val_present;\n"
-                trace_code += f"  PMPI_Comm_set_attr(*{param_name}, COMMID_KEY, &next_commid);\n"
-                trace_code += f"  next_commid += 1;\n"
-                trace_code += f"  PMPI_Comm_get_attr(*{param_name}, COMMID_KEY, &comm_id, &val_present);\n"
-                trace_code += f"  WRITE_TRACE(\"%i:\", comm_id);\n"
-                trace_code += f"  assert(val_present);\n"
-
-        elif param_type == "MPI_Group":
-            trace_code += f"  int group_c2f, group_rank, group_size;\n"
-            trace_code += f"  group_c2f = PMPI_Group_c2f({param_name});\n"
-            trace_code += f"  PMPI_Group_rank({param_name}, &group_rank);\n"
-            trace_code += f"  PMPI_Group_size({param_name}, &group_size);\n"
-            trace_code += f"  WRITE_TRACE(\"%i,%i,%i:\", group_c2f, group_rank, group_size);\n"
-        elif param_type == "MPI_Group *":
-            if function_name.endswith("_free"):
-                trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
-            else:
-                trace_code += f"  int group_c2f, group_rank, group_size;\n"
-                trace_code += f"  group_c2f = PMPI_Group_c2f(*{param_name});\n"
-                trace_code += f"  PMPI_Group_rank(*{param_name}, &group_rank);\n"
-                trace_code += f"  PMPI_Group_size(*{param_name}, &group_size);\n"
-                trace_code += f"  WRITE_TRACE(\"%i,%i,%i:\", group_c2f, group_rank, group_size);\n"
-
-        elif param_type in ["MPI_Aint", "MPI_Offset", "MPI_Op", "MPI_Count"]:
-            trace_code += f"  WRITE_TRACE(\"%llu:\", (long long unsigned int) {param_name});\n"
-        elif param_type in ["MPI_Aint *", "MPI_Count *", "MPI_Offset *"]:
-            trace_code += f"  WRITE_TRACE(\"%llu:\", (long long unsigned int) *{param_name});\n"
-        elif param_type in ["const MPI_Aint[]"]:
-            trace_code += f"  WRITE_TRACE(\"%llu:\", (long long unsigned int) *{param_name});\n"
-        elif param_type in ["MPI_Request *", "MPI_Request[]"]:
-            trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
-        elif param_type in ["MPI_Status *", "MPI_Status[]", "const MPI_Status *"]:
-            trace_code += f"  WRITE_TRACE(\"%p:\", {param_name});\n"
+    def write_prolog(self, mode='c'):
+        if mode == "c":
+            self.outfile.write("#include <mpi.h>\n")
+            self.outfile.write("#include <assert.h>\n")
+            self.outfile.write("#include <stdio.h>\n")
+            self.outfile.write("#include <string.h>\n")
+            self.outfile.write("\n")
+            self.outfile.write("#define WRITE_TRACE(fmt, args...) printf(fmt, args)\n")
+            self.outfile.write("#define COMMID_KEY 1234\n")
+            self.outfile.write("#define WINID_KEY 2234\n")
+            self.outfile.write("int next_commid = 0;\n")
+            self.outfile.write("\n\n")
         else:
-            print(f"Tracing for [{param_type}] not implemented! (appears in {function_name})")
-            #print(f"Tracing for [{param_type}] not implemented!")
-        trace_code += "  }\n"
-        return trace_code
+            raise NotImplementedError(f"Mode {mode} not implemented!")
+    
+    def write_tracer_prolog(self, func, mode):
+        """ Write a tracers prolog code, which writes starttime and function name to trace. Return value is expected in pmpi_retval!"""
+        prolog_code = ""
+        prolog_code += f"  {self.semantics[func]['return_type']} pmpi_retval;\n" 
+        prolog_code += f"  WRITE_TRACE(\"%s\", \"{func}:\");\n"
+        prolog_code += f"  WRITE_TRACE(\"%0.2f:\", PMPI_Wtime()*1e6);\n"
+        self.outfile.write(prolog_code)
 
-    def generate_function_signature(self, cursor):
-        return_type = cursor.result_type.spelling
-        function_name = cursor.spelling
-        parameters = []
-        for param_cursor in cursor.get_children():
-            if param_cursor.kind == clang.cindex.CursorKind.PARM_DECL:
-                param_type = param_cursor.type.spelling
-                param_name = param_cursor.spelling
-                # If we use any square brackets, the param name comes before them, otherwise its type paramname.
-                m = re.match("(.+?)(\[.*\])", param_type)
-                if m:
-                    parameters.append(f"{m.group(1)} {param_name}{m.group(2)}")
-                else:
-                    parameters.append(f"{param_type} {param_name}")
-                self.types[str(param_type)] += [function_name]
-        function_code  = f"{return_type} {function_name}({', '.join(parameters)})"
-        return function_code
+    def write_tracer_epilog(self, func, mode):
+        """ Write a tracers epilog code, which writes endtime and returns pmpi_retval!"""
+        code = ""
+        code += f"  WRITE_TRACE(\"%0.2f\", PMPI_Wtime()*1e6);\n"
+        code += f"  return pmpi_retval;\n"
+        self.outfile.write(code)
 
+    def write_pmpi_call(self, func, mode):
+        """ Write the PMPI call. """
+        sem = self.semantics[func]
+        args = []
+        for arg in self.semantics[func]['params']:
+            args.append(arg['name'])
+        argstr = ", ".join(args)
+        self.outfile.write(f"  pmpi_retval = P{func}({argstr});\n")
 
-    def traverse_ast(self, node, depth=0, print_ast=False):
-        if print_ast:
-            print('  ' * depth + f'{node.kind} ({node.displayname})')
-        if node.kind is clang.cindex.CursorKind.FUNCTION_DECL and re.match("MPI_.*", node.displayname) :
-            self.nodes += [node]
-        for child in node.get_children():
-            self.traverse_ast(child, depth + 1, print_ast)
+    def split_type(self, typestr):
+        """ Type descriptions like int[] cannot simply be prepended to an argument name foo, it must be int foo[]. This function seperates the base type and the [] part. """
+        m = re.match("(.+?)(\[.*\])", typestr)
+        if m:
+            return (m.group(1), m.group(2))
+        else:
+            return (typestr, "")
 
+    def tracer_for_simple_arg(self, name, typestr):
+        if typestr.startswith("const "):
+            typestr = typestr[6:]
+        if typestr == "int":
+            return f"WRITE_TRACE(\"%i:\", {name});\n"
+        if typestr in ["MPI_Aint", "MPI_Count", "MPI_Offset"]:
+            return f"WRITE_TRACE(\"%lli:\", {name});\n"
+        elif typestr == "int *":
+            return f"WRITE_TRACE(\"%i:\", *{name});\n"
+        elif typestr in ["MPI_Aint *", "MPI_Count *", "MPI_Offset *"] :
+            return f"WRITE_TRACE(\"%lli:\", *{name});\n"
+        elif typestr == "void *":
+            return f"WRITE_TRACE(\"%p:\", {name});\n"
+        elif typestr.startswith("char *"):
+            return f"WRITE_TRACE(\"%p:\", {name});\n"
+        elif typestr == "MPI_Comm":
+            trace_code = ""
+            # We set an info key in any function creating a new comm. These keys are NOT guranteed to be globally unique, only per comm_world rank!
+            trace_code += "{\n"
+            trace_code += f"  int comm_id, val_present, comm_rank, comm_size;\n"
+            trace_code += f"  PMPI_Comm_get_attr({name}, COMMID_KEY, &comm_id, &val_present);\n"
+            trace_code += f"  assert(val_present);\n"
+            trace_code += f"  PMPI_Comm_rank({name}, &comm_rank);\n"
+            trace_code += f"  PMPI_Comm_size({name}, &comm_size);\n"
+            trace_code += f"  WRITE_TRACE(\"%i,%i,%i:\", comm_id, comm_rank, comm_size);\n"
+            trace_code += "}\n"
+            return trace_code
+        elif typestr == "MPI_Datatype":
+            trace_code = "{\n"
+            trace_code += f"  int ddtsize;\n"
+            trace_code += f"  PMPI_Type_size({name}, &ddtsize);\n"
+            trace_code += f"  WRITE_TRACE(\"%i:\", ddtsize);\n"
+            trace_code += "}\n"
+        elif typestr == "MPI_Datatype *":
+            trace_code = "{\n"
+            trace_code += f"  int ddtsize;\n"
+            trace_code += f"  PMPI_Type_size(*{name}, &ddtsize);\n"
+            trace_code += f"  WRITE_TRACE(\"%i:\", ddtsize);\n"
+            trace_code += "}\n"
+            return trace_code
+        elif typestr.endswith("_function *"):
+            return f"WRITE_TRACE(\"%p:\", {name});\n"
+        else:
+            print(f"{typestr} tracer not implemmented")
+        return ""
 
-    def process_func(self, node):
-        function_name = node.spelling
-        if function_name in self.BLACKLISTED_FUNCTIONS:
-            return
-        self.outfile.write(self.generate_function_signature(node)+" {\n")
-        self.outfile.write(self.generate_trace_code_prolog(node))
-        self.outfile.write(self.generate_pmpi_call(node))
-        self.outfile.write(self.generate_trace_code_epilog(node))
-        self.outfile.write("  return retval;\n")
-        self.outfile.write("}\n\n")
+    def write_argument_tracers(self, func, mode):
+        for sem_param in self.semantics[func]['params']:
+            if ('elem_count' in sem_param) and (sem_param['prolog_elem_count'] is not None):
+                # this argument contains multiple elements
+                if ('prolog_elem_count' in sem_param) and (sem_param['prolog_elem_count'] is not None):
+                    self.outfile.write("{\n")
+                    self.outfile.write(f"  {sem_param['prolog_elem_count']}\n")
+                self.outfile.write(f"  for (int trace_elem_idx=0; trace_elem_idx<{sem_param['elem_count']}; trace_elem_idx++) "+"{\n")
+                self.outfile.write("  }\n")
+                if ('prolog_elem_count' in sem_param) and (sem_param['prolog_elem_count'] is not None):
+                    self.outfile.write("}\n")
+                if ('elem_count' in sem_param) and (sem_param['prolog_elem_count'] is None):
+                    self.outfile.write(f"WRITE_TRACE(\"%p:\", {sem_param['name']});\n")
+            else:
+                code = self.tracer_for_simple_arg(sem_param['name'], sem_param['type'])
+                self.outfile.write("  " + code)
 
-    def process_header(self, filename):
-        clang.cindex.Config.set_library_path(self.libclang_path)
-        index = clang.cindex.Index.create()
-        translation_unit = index.parse(filename)
-        if not translation_unit:
-            print("Error parsing the file.")
-            return
-        root_cursor = translation_unit.cursor
-        self.traverse_ast(root_cursor)
-        for node in self.nodes:
-            self.process_func(node)
-
-    def write_prolog(self):
-        self.outfile.write("#include <mpi.h>\n")
-        self.outfile.write("#include <assert.h>\n")
-        self.outfile.write("#include <stdio.h>\n")
-        self.outfile.write("\n")
-        self.outfile.write("#define WRITE_TRACE(fmt, args...) printf(fmt, args)\n")
-        self.outfile.write("#define COMMID_KEY 1234\n")
-        self.outfile.write("#define WINID_KEY 2234\n")
-        self.outfile.write("int next_commid = 0;\n")
-        self.outfile.write("\n\n")
+    def produce_tracers(self, mode='c'):
+        for func in self.semantics:
+            param_signatures = []
+            for param in self.semantics[func]['params']:
+                type_prefix, type_suffix = self.split_type(param['type'])
+                param_signatures.append(f"{type_prefix} {param['name']}{type_suffix}")
+            params = ", ".join(param_signatures) 
+            self.outfile.write(f"{self.semantics[func]['return_type']} {func} ({params})"+" {\n")
+            self.write_tracer_prolog(func, mode)
+            self.write_pmpi_call(func, mode)
+            self.write_argument_tracers(func, mode)
+            self.write_tracer_epilog(func, mode)
+            self.outfile.write("}\n")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
                     prog='liballprof_gencode',
                     description='Generates wrappers for the MPI functions present in the supplied MPI header file. The wrappers output in liballprof2 trace format.',
                     epilog='')
-    parser.add_argument('-m', '--mpi-header',          default="mpi.h",           help="MPI header file to use as input")
-    parser.add_argument('-c','--c-output-file',        default="mpi_wrapper.c",   help="Name of the generated C file.")
-    parser.add_argument('-f', '--fortran-output-file', default="f90_wrapper.f90", help="Name of the generated FORTRAN file.")
-    parser.add_argument('-l', '--libclang-path',       default="",                help="Path to libclang")
+    parser.add_argument('-s', '--semantics-file',       default='mpi_sem.yml',              help="Name of the file that specifies the tracer semantics (default: mpi-sem.yml)")
+    parser.add_argument('-c', '--c-output-file',        default="mpi_c_wrapper.c",          help="Name of the generated C file (default: mpi_c_wrapper.c)")
+    parser.add_argument('-f', '--fortran-output-file',  default="mpi_f_wrapper.f90",        help="Name of the generated FORTRAN file (default: mpi_f_wrapper.f90)")
     args = parser.parse_args()
 
-    codegen = AllprofCodegen(libclang_path=args.libclang_path)
+    codegen = AllprofCodegen()
+    codegen.parse_semantics(args.semantics_file)
     codegen.outfile = open(args.c_output_file, "w")
-    codegen.write_prolog()
-    codegen.process_header(args.mpi_header)
+    codegen.write_prolog(mode='c')
+    codegen.produce_tracers(mode='c')
     codegen.outfile.close()
-    #for k in codegen.types:
-    #    print(k + " appears in "+str(codegen.types[k]) +"\n")
+
