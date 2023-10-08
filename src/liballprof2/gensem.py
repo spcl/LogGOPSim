@@ -21,7 +21,7 @@ class AllprofCodegen:
         # TODO minimize this
         mapping = {}
         GET_NDIMS_CART_COMM = "int ndims; MPI_Cartdim_get(comm, &ndims);"
-        GET_COMM_SIZE = "int size; MPI_Comm_size(comm, &size);"
+        GET_COMM_SIZE = "int rank, size; MPI_Comm_size(comm, &size); MPI_Comm_rank(comm, &rank);"
         GET_NEIGH_GRAPH_COMM = "int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm, &ideg, &odeg, &wted);"
         mapping[("MPI_Cart_create", "dims")] = "ndims"
         mapping[("MPI_Cart_create", "periods")] = "ndims"
@@ -134,10 +134,10 @@ class AllprofCodegen:
         mapping[("MPI_Pack_external_size", "datarep")] = "strlen(datarep)"
         mapping[("MPI_Reduce_scatter", "recvcounts")] = (GET_COMM_SIZE, "size")
         mapping[("MPI_Ireduce_scatter", "recvcounts")] = (GET_COMM_SIZE, "size")
-        mapping[("MPI_Scatterv", "sendcounts")] = (GET_COMM_SIZE, "size")
-        mapping[("MPI_Scatterv", "displs")] = (GET_COMM_SIZE, "size")
-        mapping[("MPI_Iscatterv", "sendcounts")] = (GET_COMM_SIZE, "size")
-        mapping[("MPI_Iscatterv", "displs")] = (GET_COMM_SIZE, "size")
+        mapping[("MPI_Scatterv", "sendcounts")] = (GET_COMM_SIZE, "(rank==root ? size : 0)")
+        mapping[("MPI_Scatterv", "displs")] = (GET_COMM_SIZE, "(rank==root ? size : 0)")
+        mapping[("MPI_Iscatterv", "sendcounts")] = (GET_COMM_SIZE, "(rank == root ? size : 0)")
+        mapping[("MPI_Iscatterv", "displs")] = (GET_COMM_SIZE, "(rank == root ? size : 0)")
         mapping[("MPI_Startall", "array_of_requests")] = "count"
         mapping[("MPI_Testall", "array_of_requests")] = "count"
         mapping[("MPI_Testall", "array_of_statuses")] = "count"
@@ -153,11 +153,11 @@ class AllprofCodegen:
         mapping[("MPI_Type_get_contents", "array_of_addresses")] = "max_addresses"
         mapping[("MPI_Type_get_contents", "array_of_datatypes")] = "max_datatypes"
         mapping[("MPI_Unpack_external", "datarep")] = "strlen(datarep)"
-        mapping[("MPI_Waitall", "array_of_requests")] = "count"
+        mapping[("MPI_Waitall", "array_of_requests")] = "(array_of_statuses != MPI_STATUSES_IGNORE ? count : 0)"
         mapping[("MPI_Waitany", "array_of_requests")] = "count"
         mapping[("MPI_Waitsome", "array_of_requests")] = "incount"
         mapping[("MPI_Waitsome", "array_of_indices")] = "*outcount"
-        mapping[("MPI_Waitsome", "array_of_statuses")] = "*outcount"
+        mapping[("MPI_Waitsome", "array_of_statuses")] = "(array_of_statuses != MPI_STATUSES_IGNORE ? *outcount : 0)"
         if (func, param) not in mapping:
             print(f"Did not find mapping[(\"{func}\", \"{param}\")] = \"\"")
             return None
