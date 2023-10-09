@@ -27,14 +27,16 @@ add_gengetopt_files(Schedgen/schedgen_cmdline)
 add_executable(schedgen Schedgen/buffer_element.cpp Schedgen/schedgen.cpp Schedgen/process_trace.cpp Schedgen/schedgen_cmdline.c)
 
 # build liballprof2
-# download mpi.h from Open MPI
 find_package(MPI)
+find_package(Clang)
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 add_custom_target(mpi_header_avail      DEPENDS ${PROJECT_SOURCE_DIR}/liballprof2/mpi.h)
 add_custom_target(mpi_wrapper_generated DEPENDS ${PROJECT_SOURCE_DIR}/liballprof2/mpi_wrapper.c)
+add_custom_command(OUTPUT liballprof2/mpi_sem.yml
+    COMMAND ${PROJECT_SOURCE_DIR}/liballprof2/gencode.py -s ${PROJECT_SOURCE_DIR}/liballprof2/mpi_sem.yml  DEPENDS mpi_header_avail)
 add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/liballprof2/mpi_wrapper.c
-    COMMAND ${PROJECT_SOURCE_DIR}/liballprof2/gencode.py -m ${PROJECT_SOURCE_DIR}/liballprof2/mpi.h -c ${PROJECT_SOURCE_DIR}/liballprof2/mpi_wrapper.c DEPENDS mpi_header_avail)
-add_library(mpipclog ${PROJECT_SOURCE_DIR}/liballprof2/mpi_wrapper.c)
+    COMMAND ${PROJECT_SOURCE_DIR}/liballprof2/gensem.py -l ${CLANG_LIBS} -m ${PROJECT_SOURCE_DIR}/liballprof2/mpi.h DEPENDS mpi_header_avail)
+add_library(mpipclog liballprof2/mpi_c_wrapper.c liballprof2/mpi_f_wrapper.c)
 add_dependencies(mpipclog mpi_wrapper_generated)
 target_link_libraries(mpipclog ${MPI_C_LIBRARIES})
 

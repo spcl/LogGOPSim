@@ -36,6 +36,8 @@ class AllprofCodegen:
             self.outfile.write("}\n")
         
             self.outfile.write("\n\n")
+        elif mode == 'fortran':
+            self.outfile.write("include \"mpif.h\"\n\n")
         else:
             raise NotImplementedError(f"Mode {mode} not implemented!")
     
@@ -185,14 +187,20 @@ class AllprofCodegen:
     def produce_tracers(self, mode='c'):
         for func in self.semantics:
             delay_pmpi = False # usually we write the trace after the pmpi call, however, if the function frees some of its arguments we want to do it before
-            param_signatures = []
-            for param in self.semantics[func]['params']:
-                type_prefix, type_suffix = self.split_type(param['type'])
-                param_signatures.append(f"{type_prefix} {param['name']}{type_suffix}")
             if func.endswith("_free") or ("_delete_" in func):
                 delay_pmpi = True
-            params = ", ".join(param_signatures) 
-            self.outfile.write(f"{self.semantics[func]['return_type']} {func} ({params})"+" {\n")
+            param_signatures = []
+            for param in self.semantics[func]['params']:
+                if mode == 'c':
+                    type_prefix, type_suffix = self.split_type(param['type'])
+                    param_signatures.append(f"{type_prefix} {param['name']}{type_suffix}")
+                if mode == 'fortran':
+                    param_signatures.append(f"int* {param['name']}")
+            params = ", ".join(param_signatures)
+            if mode == 'c':
+                self.outfile.write(f"{self.semantics[func]['return_type']} {func} ({params})"+" {\n")
+            if mode == 'fortran':
+                self.outfile.write(f"void FortranCInterface_GLOBAL({func},{func})({params})"+" {\n")
             self.write_tracer_prolog(func, mode)
             if not delay_pmpi:
                 self.write_pmpi_call(func, mode)
@@ -210,8 +218,8 @@ if __name__ == "__main__":
                     description='Generates wrappers for the MPI functions present in the supplied MPI header file. The wrappers output in liballprof2 trace format.',
                     epilog='')
     parser.add_argument('-s', '--semantics-file',       default='mpi_sem.yml',              help="Name of the file that specifies the tracer semantics (default: mpi-sem.yml)")
-    parser.add_argument('-c', '--c-output-file',        default="mpi_c_wrapper.c",          help="Name of the generated C file (default: mpi_c_wrapper.c)")
-    parser.add_argument('-f', '--fortran-output-file',  default="mpi_f_wrapper.f90",        help="Name of the generated FORTRAN file (default: mpi_f_wrapper.f90)")
+    parser.add_argument('-c', '--c-output-file',        default="mpi_c_wrapper.c",          help="Name of the generated C wrapper file (default: mpi_c_wrapper.c)")
+    parser.add_argument('-f', '--fortran-output-file',  default="mpi_f_wrapper.c",          help="Name of the generated FORTRAN wrapper file (default: mpi_f_wrapper.c)")
     args = parser.parse_args()
 
     codegen = AllprofCodegen()
@@ -219,5 +227,9 @@ if __name__ == "__main__":
     codegen.outfile = open(args.c_output_file, "w")
     codegen.write_prolog(mode='c')
     codegen.produce_tracers(mode='c')
+    codegen.outfile.close()
+    codegen.outfile = open(args.fortran_output_file, "w")
+    codegen.write_prolog(mode='fortran')
+    codegen.produce_tracers(mode='fortran')
     codegen.outfile.close()
 
