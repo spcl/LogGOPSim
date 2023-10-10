@@ -37,7 +37,9 @@ class AllprofCodegen:
         
             self.outfile.write("\n\n")
         elif mode == 'fortran':
-            self.outfile.write("include \"mpif.h\"\n\n")
+            self.outfile.write("#include <mpif.h>\n")
+            self.outfile.write("#include \"fc_mangle.h\"\n")
+            self.outfile.write("\n")
         else:
             raise NotImplementedError(f"Mode {mode} not implemented!")
     
@@ -200,7 +202,7 @@ class AllprofCodegen:
             if mode == 'c':
                 self.outfile.write(f"{self.semantics[func]['return_type']} {func} ({params})"+" {\n")
             if mode == 'fortran':
-                self.outfile.write(f"void FortranCInterface_GLOBAL({func},{func})({params})"+" {\n")
+                self.outfile.write(f"void FortranCInterface_GLOBAL({func},{func.upper()}) ({params})"+" {\n")
             self.write_tracer_prolog(func, mode)
             if not delay_pmpi:
                 self.write_pmpi_call(func, mode)
