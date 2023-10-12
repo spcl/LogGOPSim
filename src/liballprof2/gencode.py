@@ -38,6 +38,7 @@ class AllprofCodegen:
             self.outfile.write("\n\n")
         elif mode == 'fortran':
             self.outfile.write("#include <mpif.h>\n")
+            self.outfile.write("#include <mpi.h>\n")
             self.outfile.write("#include \"fc_mangle.h\"\n")
             self.outfile.write("\n")
         else:
@@ -46,7 +47,8 @@ class AllprofCodegen:
     def write_tracer_prolog(self, func, mode):
         """ Write a tracers prolog code, which writes starttime and function name to trace. Return value is expected in pmpi_retval!"""
         prolog_code = ""
-        prolog_code += f"  {self.semantics[func]['return_type']} pmpi_retval;\n" 
+        if mode == 'c':
+            prolog_code += f"  {self.semantics[func]['return_type']} pmpi_retval;\n" 
         prolog_code += f"  WRITE_TRACE(\"%s\", \"{func}:\");\n"
         prolog_code += f"  WRITE_TRACE(\"%0.2f:\", PMPI_Wtime()*1e6);\n"
         self.outfile.write(prolog_code)
@@ -55,7 +57,12 @@ class AllprofCodegen:
         """ Write a tracers epilog code, which writes endtime and returns pmpi_retval!"""
         code = ""
         code += f"  WRITE_TRACE(\"%0.2f\\n\", PMPI_Wtime()*1e6);\n"
-        code += f"  return pmpi_retval;\n"
+        if mode == 'c':
+            code += f"  return pmpi_retval;\n"
+        elif mode == 'fortran':
+            pass # no return needed
+        else:
+            raise NotImplementedError(f"Mode {mode} for code generation is not implemented.")
         self.outfile.write(code)
 
     def write_pmpi_call(self, func, mode):
@@ -64,8 +71,16 @@ class AllprofCodegen:
         args = []
         for arg in self.semantics[func]['params']:
             args.append(arg['name'])
+        if mode == 'fortran':
+            args.append("ierr")
         argstr = ", ".join(args)
-        self.outfile.write(f"  pmpi_retval = P{func}({argstr});\n")
+        if mode == 'c':
+            self.outfile.write(f"  pmpi_retval = P{func}({argstr});\n")
+        elif mode == 'fortran':
+            # in fortran mpi calls return void
+            self.outfile.write(f" FortranCInterface_GLOBAL(p{func.lower()},P{func.upper()}) ({argstr});\n")
+        else:
+            raise NotImplementedError('Mode {mode} is not implemented for codegen.')
 
     def split_type(self, typestr):
         """ Type descriptions like int[] cannot simply be prepended to an argument name foo, it must be int foo[]. This function seperates the base type and the [] part. """
@@ -186,6 +201,17 @@ class AllprofCodegen:
                 code = self.tracer_for_simple_arg(sem_param['name'], sem_param['type'], func, sep=":")
                 self.outfile.write("  " + code)
 
+
+    def produce_fortran_pmpi_prototypes(self):
+        for func in self.semantics:
+            param_signatures = []
+            for param in self.semantics[func]['params']:
+                param_signatures.append(f"int* {param['name']}")
+            param_signatures.append("int* ierr")
+            params = ", ".join(param_signatures)
+            self.outfile.write(f"void FortranCInterface_GLOBAL({func},{func.upper()}) ({params})"+";\n")
+
+
     def produce_tracers(self, mode='c'):
         for func in self.semantics:
             delay_pmpi = False # usually we write the trace after the pmpi call, however, if the function frees some of its arguments we want to do it before
@@ -198,6 +224,8 @@ class AllprofCodegen:
                     param_signatures.append(f"{type_prefix} {param['name']}{type_suffix}")
                 if mode == 'fortran':
                     param_signatures.append(f"int* {param['name']}")
+            if mode == 'fortran':
+                param_signatures.append("int* ierr")
             params = ", ".join(param_signatures)
             if mode == 'c':
                 self.outfile.write(f"{self.semantics[func]['return_type']} {func} ({params})"+" {\n")
@@ -232,6 +260,7 @@ if __name__ == "__main__":
     codegen.outfile.close()
     codegen.outfile = open(args.fortran_output_file, "w")
     codegen.write_prolog(mode='fortran')
+    codegen.produce_fortran_pmpi_prototypes()
     codegen.produce_tracers(mode='fortran')
     codegen.outfile.close()
 
