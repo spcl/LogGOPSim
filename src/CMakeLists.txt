@@ -29,6 +29,7 @@ add_executable(schedgen Schedgen/buffer_element.cpp Schedgen/schedgen.cpp Schedg
 # build liballprof2
 find_package(MPI)
 find_package(Clang)
+find_package(Backtrace)
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 include(FortranCInterface)
 FortranCInterface_VERIFY()
@@ -40,9 +41,12 @@ add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/liballprof2/mpi_c_wrapper.c  ${P
     COMMAND ${PROJECT_SOURCE_DIR}/liballprof2/gencode.py -s ${PROJECT_SOURCE_DIR}/liballprof2/mpi_sem.yml  DEPENDS mpi_semantics_avail)
 add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/liballprof2/mpi_semantics.yml 
     COMMAND ${PROJECT_SOURCE_DIR}/liballprof2/gensem.py -l ${CLANG_INSTALL_PREFIX}/lib -m ${PROJECT_SOURCE_DIR}/liballprof2/mpi.h DEPENDS mpi_header_avail)
-add_library(mpipclog mpi_c_wrapper.c mpi_f_wrapper.c)
+add_library(mpipclog mpi_c_wrapper.c)
+add_library(mpipflog mpi_f_wrapper.c)
 add_dependencies(mpipclog mpi_wrapper_generated)
+add_dependencies(mpipflog mpi_wrapper_generated)
 target_link_libraries(mpipclog ${MPI_C_LIBRARIES})
+target_link_libraries(mpipflog ${MPI_C_LIBRARIES})
 
 
 include(CTest)

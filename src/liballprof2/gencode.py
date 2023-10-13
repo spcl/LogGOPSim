@@ -19,30 +19,22 @@ class AllprofCodegen:
                 print(exc)
 
     def write_prolog(self, mode='c'):
-        if mode == "c":
-            self.outfile.write("#include <mpi.h>\n")
-            self.outfile.write("#include <assert.h>\n")
-            self.outfile.write("#include <stdio.h>\n")
-            self.outfile.write("#include <string.h>\n")
-            self.outfile.write("\n")
-            self.outfile.write("#define WRITE_TRACE(fmt, args...) printf(fmt, args)\n")
-            self.outfile.write("int COMMID_KEY;\n")
-            self.outfile.write("int WINID_KEY;\n")
-            self.outfile.write("int next_commid = 0;\n\n")
-            self.outfile.write("void tracer_init(void) {\n")
-            self.outfile.write("  PMPI_Comm_create_keyval( MPI_COMM_NULL_COPY_FN, MPI_COMM_NULL_DELETE_FN, &COMMID_KEY, (void *)0 );\n")
-            self.outfile.write("  PMPI_Comm_set_attr(MPI_COMM_WORLD, COMMID_KEY, &next_commid);\n")
-            self.outfile.write("  PMPI_Win_create_keyval(MPI_WIN_NULL_COPY_FN, MPI_WIN_NULL_DELETE_FN, &WINID_KEY, (void *)0 );\n")
-            self.outfile.write("}\n")
-        
-            self.outfile.write("\n\n")
-        elif mode == 'fortran':
-            self.outfile.write("#include <mpif.h>\n")
-            self.outfile.write("#include <mpi.h>\n")
+        self.outfile.write("#include <mpi.h>\n")
+        self.outfile.write("#include <assert.h>\n")
+        self.outfile.write("#include <stdio.h>\n")
+        self.outfile.write("#include <string.h>\n")
+        if mode == 'fortran':
             self.outfile.write("#include \"fc_mangle.h\"\n")
-            self.outfile.write("\n")
-        else:
-            raise NotImplementedError(f"Mode {mode} not implemented!")
+        self.outfile.write("\n")
+        self.outfile.write("#define WRITE_TRACE(fmt, args...) printf(fmt, args)\n")
+        self.outfile.write("int COMMID_KEY;\n")
+        self.outfile.write("int WINID_KEY;\n")
+        self.outfile.write("int next_commid = 0;\n\n")
+        self.outfile.write("void tracer_init(void) {\n")
+        self.outfile.write("  PMPI_Comm_create_keyval( MPI_COMM_NULL_COPY_FN, MPI_COMM_NULL_DELETE_FN, &COMMID_KEY, (void *)0 );\n")
+        self.outfile.write("  PMPI_Comm_set_attr(MPI_COMM_WORLD, COMMID_KEY, &next_commid);\n")
+        self.outfile.write("  PMPI_Win_create_keyval(MPI_WIN_NULL_COPY_FN, MPI_WIN_NULL_DELETE_FN, &WINID_KEY, (void *)0 );\n")
+        self.outfile.write("}\n")
     
     def write_tracer_prolog(self, func, mode):
         """ Write a tracers prolog code, which writes starttime and function name to trace. Return value is expected in pmpi_retval!"""
@@ -78,7 +70,7 @@ class AllprofCodegen:
             self.outfile.write(f"  pmpi_retval = P{func}({argstr});\n")
         elif mode == 'fortran':
             # in fortran mpi calls return void
-            self.outfile.write(f" FortranCInterface_GLOBAL(p{func.lower()},P{func.upper()}) ({argstr});\n")
+            self.outfile.write(f" P{func}_f({argstr});\n")
         else:
             raise NotImplementedError('Mode {mode} is not implemented for codegen.')
 
@@ -167,6 +159,8 @@ class AllprofCodegen:
         return ""
 
     def write_argument_tracers(self, func, mode):
+        if mode == 'fortran':
+            return
         # collect all needed prologs (code that we need to decide how many elemnts are in an array, like getting comm size)
         prologs = []
         for sem_param in self.semantics[func]['params']:
@@ -210,37 +204,45 @@ class AllprofCodegen:
             param_signatures.append("int* ierr")
             params = ", ".join(param_signatures)
             self.outfile.write(f"void FortranCInterface_GLOBAL({func},{func.upper()}) ({params})"+";\n")
+        self.outfile.write("\n\n")
 
 
     def produce_tracers(self, mode='c'):
         for func in self.semantics:
+
+            # do not trace f2c funcs in fortran mode - they don't exist?
+            if mode == 'fortran' and (('f2c' in func) or ('c2f' in func)):
+                return
+
             delay_pmpi = False # usually we write the trace after the pmpi call, however, if the function frees some of its arguments we want to do it before
             if func.endswith("_free") or ("_delete_" in func):
                 delay_pmpi = True
+
             param_signatures = []
             for param in self.semantics[func]['params']:
                 if mode == 'c':
                     type_prefix, type_suffix = self.split_type(param['type'])
                     param_signatures.append(f"{type_prefix} {param['name']}{type_suffix}")
-                if mode == 'fortran':
+                elif mode == 'fortran':
                     param_signatures.append(f"int* {param['name']}")
             if mode == 'fortran':
                 param_signatures.append("int* ierr")
             params = ", ".join(param_signatures)
+
             if mode == 'c':
                 self.outfile.write(f"{self.semantics[func]['return_type']} {func} ({params})"+" {\n")
-            if mode == 'fortran':
-                self.outfile.write(f"void FortranCInterface_GLOBAL({func},{func.upper()}) ({params})"+" {\n")
+            elif mode == 'fortran':
+                self.outfile.write(f"void FortranCInterface_GLOBAL({func.lower()},{func.upper()}) ({params})"+" {\n")
+
+            self.outfile.write("  tracer_init();\n")
             self.write_tracer_prolog(func, mode)
             if not delay_pmpi:
                 self.write_pmpi_call(func, mode)
-            if func == 'MPI_Init':
-                self.outfile.write("tracer_init();\n")
             self.write_argument_tracers(func, mode)
             if delay_pmpi:
                 self.write_pmpi_call(func, mode)
             self.write_tracer_epilog(func, mode)
-            self.outfile.write("}\n")
+            self.outfile.write("}\n\n")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -260,7 +262,7 @@ if __name__ == "__main__":
     codegen.outfile.close()
     codegen.outfile = open(args.fortran_output_file, "w")
     codegen.write_prolog(mode='fortran')
-    codegen.produce_fortran_pmpi_prototypes()
+    #codegen.produce_fortran_pmpi_prototypes()
     codegen.produce_tracers(mode='fortran')
     codegen.outfile.close()
 
