@@ -52,13 +52,13 @@ target_link_libraries(mpipflog ${MPI_C_LIBRARIES})
 include(CTest)
 # test the c++ toolchain for some pattern
 add_test(NAME schedgen_binomialtreebcast COMMAND schedgen -o schedule.goal --commsize 8 --ptrn binomialtreebcast)
-add_test(NAME txt2bin_binomialtreebcast COMMAND txt2bin -i schedule.goal -o schedule.bin)
-add_test(NAME loggopsim_binomialtreebcast COMMAND LogGOPSim -f schedule.bin)
+add_test(NAME txt2bin_binomialtreebcast COMMAND txt2bin -i schedule.goal -o schedule.bin DEPENDS schedgen_binomialtreebcast)
+add_test(NAME loggopsim_binomialtreebcast COMMAND LogGOPSim -f schedule.bin DEPENDS txt2bin_binomialtreebcast)
 
 # test the python toolchain for some pattern
 add_test(NAME schedgen2_bcast COMMAND ${PYTHON_EXECUTABLE} schedgen.py bcast --output schedule.goal WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/Schedgen2)
-add_test(NAME txt2bin_schedgen2_bcast COMMAND txt2bin -i ${PROJECT_SOURCE_DIR}/Schedgen2/schedule.goal -o schedule.bin)
-add_test(NAME loggopsim_schedgen2_bcast COMMAND LogGOPSim -f schedule.bin)
+add_test(NAME txt2bin_schedgen2_bcast COMMAND txt2bin -i ${PROJECT_SOURCE_DIR}/Schedgen2/schedule.goal -o schedule.bin DEPENDS schedgen2_bcast)
+add_test(NAME loggopsim_schedgen2_bcast COMMAND LogGOPSim -f schedule.bin DEPENDS txt2bin_schedgen2_bcast)
 
 # test liballprof
 
@@ -66,9 +66,9 @@ add_test(NAME loggopsim_schedgen2_bcast COMMAND LogGOPSim -f schedule.bin)
 #c wrapper test
 add_executable(test_lap2_c ${PROJECT_SOURCE_DIR}/../tests/mpi_helloworld.c)
 target_link_libraries(test_lap2_c mpipclog)
-add_test(NAME trace_lap2_c COMMAND test_lap2_c)
+add_test(NAME trace_lap2_c COMMAND test_lap2_c DEPENDS test_lap2_c)
 # fortran wrapper test
 add_executable(test_lap2_f ${PROJECT_SOURCE_DIR}/../tests/mpi_helloworld.f90)
 target_link_libraries(test_lap2_f mpipflog)
-add_test(NAME trace_lap2_f COMMAND test_lap2_f)
+add_test(NAME trace_lap2_f COMMAND test_lap2_f DEPENDS test_lap2_f)
 
