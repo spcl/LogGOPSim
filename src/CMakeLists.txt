@@ -35,11 +35,11 @@ include(FortranCInterface)
 FortranCInterface_VERIFY()
 FortranCInterface_HEADER(fc_mangle.h)
 add_custom_target(mpi_header_avail DEPENDS ${PROJECT_SOURCE_DIR}/liballprof2/mpi.h)
-add_custom_target(mpi_semantics_avail      DEPENDS ${PROJECT_SOURCE_DIR}/liballprof2/mpi_sem.yml)
-add_custom_target(mpi_wrapper_generated DEPENDS ${PROJECT_SOURCE_DIR}/liballprof2/mpi_c_wrapper.c)
-add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/liballprof2/mpi_c_wrapper.c  ${PROJECT_SOURCE_DIR}/liballprof2/mpi_f_wrapper.c
-    COMMAND ${PROJECT_SOURCE_DIR}/liballprof2/gencode.py -s ${PROJECT_SOURCE_DIR}/liballprof2/mpi_sem.yml  DEPENDS mpi_semantics_avail)
-add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/liballprof2/mpi_semantics.yml 
+add_custom_target(mpi_semantics_avail      DEPENDS mpi_sem.yml)
+add_custom_target(mpi_wrapper_generated DEPENDS mpi_c_wrapper.c mpi_f_wrapper.c )
+add_custom_command(OUTPUT mpi_c_wrapper.c  mpi_f_wrapper.c
+    COMMAND ${PROJECT_SOURCE_DIR}/liballprof2/gencode.py -s mpi_sem.yml  DEPENDS mpi_semantics_avail)
+add_custom_command(OUTPUT mpi_sem.yml 
     COMMAND ${PROJECT_SOURCE_DIR}/liballprof2/gensem.py -l ${CLANG_INSTALL_PREFIX}/lib -m ${PROJECT_SOURCE_DIR}/liballprof2/mpi.h DEPENDS mpi_header_avail)
 add_library(mpipclog mpi_c_wrapper.c)
 add_library(mpipflog mpi_f_wrapper.c)
@@ -63,4 +63,12 @@ add_test(NAME loggopsim_schedgen2_bcast COMMAND LogGOPSim -f schedule.bin)
 # test liballprof
 
 # test liballprof2
+#c wrapper test
+add_executable(test_lap2_c ${PROJECT_SOURCE_DIR}/../tests/mpi_helloworld.c)
+target_link_libraries(test_lap2_c mpipclog)
+add_test(NAME trace_lap2_c COMMAND test_lap2_c)
+# fortran wrapper test
+add_executable(test_lap2_f ${PROJECT_SOURCE_DIR}/../tests/mpi_helloworld.f90)
+target_link_libraries(test_lap2_f mpipflog)
+add_test(NAME trace_lap2_f COMMAND test_lap2_f)
 
