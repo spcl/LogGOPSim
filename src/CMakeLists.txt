@@ -57,8 +57,8 @@ add_test(NAME loggopsim_binomialtreebcast COMMAND LogGOPSim -f schedule.bin DEPE
 
 # test the python toolchain for some pattern
 add_test(NAME schedgen2_bcast COMMAND ${PYTHON_EXECUTABLE} schedgen.py bcast --output schedule.goal WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/Schedgen2)
-add_test(NAME txt2bin_schedgen2_bcast COMMAND txt2bin -i ${PROJECT_SOURCE_DIR}/Schedgen2/schedule.goal -o schedule.bin DEPENDS schedgen2_bcast)
-add_test(NAME loggopsim_schedgen2_bcast COMMAND LogGOPSim -f schedule.bin DEPENDS txt2bin_schedgen2_bcast)
+add_test(NAME txt2bin_schedgen2_bcast COMMAND txt2bin -i ${PROJECT_SOURCE_DIR}/Schedgen2/schedule.goal -o schedule.bin)
+add_test(NAME loggopsim_schedgen2_bcast COMMAND LogGOPSim -f schedule.bin)
 
 # test liballprof
 
@@ -66,9 +66,12 @@ add_test(NAME loggopsim_schedgen2_bcast COMMAND LogGOPSim -f schedule.bin DEPEND
 #c wrapper test
 add_executable(test_lap2_c ${PROJECT_SOURCE_DIR}/../tests/mpi_helloworld.c)
 target_link_libraries(test_lap2_c mpipclog)
-add_test(NAME trace_lap2_c COMMAND test_lap2_c DEPENDS test_lap2_c)
+add_test(NAME trace_lap2_c COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:test_lap2_c>)
+add_test(NAME lap2_c_trace_exists  COMMAND ${CMAKE_COMMAND} -E cat lap2-trace-rank-1-of-4.txt)
+
 # fortran wrapper test
 add_executable(test_lap2_f ${PROJECT_SOURCE_DIR}/../tests/mpi_helloworld.f90)
 target_link_libraries(test_lap2_f mpipflog)
-add_test(NAME trace_lap2_f COMMAND test_lap2_f DEPENDS test_lap2_f)
+add_test(NAME trace_lap2_f COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:test_lap2_f>)
+add_test(NAME lap2_f_trace_exists  COMMAND ${CMAKE_COMMAND} -E cat lap2-trace-rank-1-of-4.txt )
 

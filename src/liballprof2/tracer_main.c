@@ -1,0 +1,82 @@
+#include <mpi.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+
+#define LAP2_TRANSFER_BUFFER_SIZE  1024
+#define WRITE_TRACE(fmt, args...) fprintf(lap_fptr, fmt, args)
+
+FILE* lap_fptr = NULL;
+int lap_initialized = 0;
+int lap_mpi_initialized = 0;
+
+
+
+static void lap_check(void) {
+  if (lap_mpi_initialized == 0) PMPI_Initialized(&lap_mpi_initialized);
+  if (lap_initialized) return;
+  lap_fptr = tmpfile(); //write to a tmpfile, we don't know our rank yet, until MPI is initialized
+  assert(lap_fptr);
+  lap_initialized = 1;
+}
+
+static void lap_collect_traces(void) {
+    int comm_rank, comm_size;
+    PMPI_Comm_rank(MPI_COMM_WORLD, &comm_rank);
+    PMPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+    int trace_size = ftell(lap_fptr);
+    fseek(lap_fptr, 0, SEEK_SET);
+    int* trace_sizes = malloc(comm_size);
+    void* chunkbuf = malloc(LAP2_TRANSFER_BUFFER_SIZE);
+    assert(trace_sizes);
+    PMPI_Gather(&trace_size, 1, MPI_INT, trace_sizes, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    if (comm_rank == 0) {
+        for (int r=0; r<comm_size; r++) {
+            printf("*** lap2: rank %i of %i trace is %i bytes long ***\n", r, comm_size, trace_sizes[r]);
+            char trace_fname[FILENAME_MAX];
+            snprintf(trace_fname, FILENAME_MAX, "lap2-trace-rank-%i-of-%i.txt", r, comm_size);
+            FILE* trace_fh = fopen(trace_fname, "w");
+            int num_chunks = trace_sizes[r] / LAP2_TRANSFER_BUFFER_SIZE;
+            if (num_chunks * LAP2_TRANSFER_BUFFER_SIZE < trace_sizes[r]) num_chunks += 1;
+            for (int chunk=0; chunk<num_chunks; chunk++) {
+                int bytes_received = 0;
+                if (r != comm_rank) {
+                    MPI_Status recv_status;
+                    PMPI_Recv(chunkbuf, LAP2_TRANSFER_BUFFER_SIZE, MPI_BYTE, r, chunk, MPI_COMM_WORLD, &recv_status);
+                    PMPI_Get_count(&recv_status, MPI_BYTE, &bytes_received);
+                }
+                else {
+                    bytes_received = fread(chunkbuf, 1, LAP2_TRANSFER_BUFFER_SIZE, lap_fptr);
+                }
+                fwrite(chunkbuf, 1, bytes_received, trace_fh);
+            }
+            fclose(trace_fh);
+        }
+    }
+    else {
+        int num_chunks = trace_size / LAP2_TRANSFER_BUFFER_SIZE;
+        if (num_chunks * LAP2_TRANSFER_BUFFER_SIZE < trace_size) num_chunks += 1;
+        for (int chunk=0; chunk<num_chunks; chunk++) {
+            size_t bytes_read = fread(chunkbuf, 1, LAP2_TRANSFER_BUFFER_SIZE, lap_fptr);
+            PMPI_Send(chunkbuf, bytes_read, MPI_BYTE, 0, chunk, MPI_COMM_WORLD);
+        }
+    }
+    free(trace_sizes);
+    free(chunkbuf);
+}
+
+int main(int argc, char** argv) { 
+  // this exists just for debugging, we paste this file into the generated code
+  // main must be the last function in this file and will be cut!
+  int rank, size;
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  lap_check();
+  for (int i=0; i<42*size+rank*rank; i++) {
+    WRITE_TRACE("Rank %i of %i line %i\n", rank, size, i);
+  }
+  lap_collect_traces();
+  MPI_Finalize();
+}

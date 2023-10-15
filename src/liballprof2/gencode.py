@@ -5,6 +5,8 @@ import clang.cindex
 import argparse
 from collections import defaultdict
 import yaml
+import pathlib
+import os
 
 class AllprofCodegen:
 
@@ -19,23 +21,17 @@ class AllprofCodegen:
                 print(exc)
 
     def write_prolog(self, mode='c'):
-        self.outfile.write("#include <mpi.h>\n")
-        self.outfile.write("#include <assert.h>\n")
-        self.outfile.write("#include <stdio.h>\n")
-        self.outfile.write("#include <string.h>\n")
         if mode == 'fortran':
             self.outfile.write("#include \"fc_mangle.h\"\n")
-        self.outfile.write("\n\n")
-        self.outfile.write("#define WRITE_TRACE(fmt, args...) printf(fmt, args)\n\n")
-        self.outfile.write("int lap_initialized = 0;\n")
-        self.outfile.write("int lap_mpi_initialized = 0;\n\n")
-        self.outfile.write("static void lap_check(void) {\n")
-        self.outfile.write("  if (lap_mpi_initialized == 0) PMPI_Initialized(&lap_mpi_initialized);\n")
-        self.outfile.write("  if (lap_initialized) return;\n")
-        self.outfile.write("  // initialize the tracer\n")
-        self.outfile.write("  lap_initialized = 1;\n")
-        self.outfile.write("}\n\n")
-    
+        source_path = pathlib.Path(__file__).resolve()
+        source_dir = source_path.parent
+        with open(os.path.join(source_dir, "tracer_main.c")) as f:
+            c_code = f.readlines()
+            for l in c_code:
+                if re.match("int\s+main\s*\(.*", l):
+                    return
+                self.outfile.write(l)
+
     def write_tracer_prolog(self, func, mode):
         """ Write a tracers prolog code, which writes starttime and function name to trace. Return value is expected in pmpi_retval!"""
         prolog_code = ""
@@ -47,15 +43,9 @@ class AllprofCodegen:
         self.outfile.write(prolog_code)
 
     def write_tracer_epilog(self, func, mode):
-        """ Write a tracers epilog code, which writes endtime and returns pmpi_retval!"""
+        """ Write a tracers epilog code, which writes endtime """
         code = ""
         code += f"  WRITE_TRACE(\"%0.2f\\n\", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);\n"
-        if mode == 'c':
-            code += f"  return pmpi_retval;\n"
-        elif mode == 'fortran':
-            pass # no return needed
-        else:
-            raise NotImplementedError(f"Mode {mode} for code generation is not implemented.")
         self.outfile.write(code)
 
     def write_pmpi_call(self, func, mode):
@@ -219,7 +209,7 @@ class AllprofCodegen:
                 return
 
             delay_pmpi = False # usually we write the trace after the pmpi call, however, if the function frees some of its arguments we want to do it before
-            if func.endswith("_free") or ("_delete_" in func):
+            if func.endswith("_free") or ("_delete_" in func) or (func == "MPI_Finalize"):
                 delay_pmpi = True
 
             param_signatures = []
@@ -242,9 +232,16 @@ class AllprofCodegen:
             if not delay_pmpi:
                 self.write_pmpi_call(func, mode)
             self.write_argument_tracers(func, mode)
-            if delay_pmpi:
+            if delay_pmpi and (func != "MPI_Finalize"):
                 self.write_pmpi_call(func, mode)
-            self.write_tracer_epilog(func, mode)
+            if func == "MPI_Finalize":
+                self.write_tracer_epilog(func, mode)
+                self.outfile.write("lap_collect_traces();\n")
+                self.write_pmpi_call(func, mode)
+            else:
+                self.write_tracer_epilog(func, mode)
+            if mode == 'c':
+                self.outfile.write("  return pmpi_retval;\n")
             self.outfile.write("}\n\n")
 
 if __name__ == "__main__":
