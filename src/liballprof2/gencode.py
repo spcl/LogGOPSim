@@ -43,9 +43,14 @@ class AllprofCodegen:
         self.outfile.write(prolog_code)
 
     def write_tracer_epilog(self, func, mode):
-        """ Write a tracers epilog code, which writes endtime """
+        """ Write a tracers epilog code, which writes endtime and backtrace """
         code = ""
-        code += f"  WRITE_TRACE(\"%0.2f\\n\", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);\n"
+        code += f"  WRITE_TRACE(\"%0.2f\", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);"
+        code += f"  if (lap_backtrace_enabled) {{\n"
+        code += f"    lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);\n"
+        code += f"    WRITE_TRACE(\"  # backtrace [%s]\", lap_backtrace_buf);\n"
+        code += f"  }}\n"
+        code += f"  WRITE_TRACE(\"%s\", \"\\n\");\n"
         self.outfile.write(code)
 
     def write_pmpi_call(self, func, mode):

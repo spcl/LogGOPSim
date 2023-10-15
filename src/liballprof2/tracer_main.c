@@ -3,23 +3,63 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#define UNW_LOCAL_ONLY //we do not need to unwind frames in another process
+#include <libunwind.h>
 
 #define LAP2_TRANSFER_BUFFER_SIZE  1024
+#define LAP2_BACKTRACE_BUF_SIZE    4096
 #define WRITE_TRACE(fmt, args...) fprintf(lap_fptr, fmt, args)
 
 FILE* lap_fptr = NULL;
 int lap_initialized = 0;
 int lap_mpi_initialized = 0;
+int lap_backtrace_enabled = 1;
+char* lap_backtrace_buf = NULL;
 
+static void init_back_trace(void) {
 
+}
+
+static void lap_get_full_backtrace(char* buf, size_t len) {
+  size_t written = 0;
+  unw_cursor_t cursor;
+  unw_context_t context;
+
+  // Initialize cursor to current frame for local unwinding.
+  unw_getcontext(&context);
+  unw_init_local(&cursor, &context);
+
+  // Unwind frames one by one, going up the frame stack.
+  while (unw_step(&cursor) > 0) {
+    unw_word_t offset, pc;
+    unw_get_reg(&cursor, UNW_REG_IP, &pc);
+    if (pc == 0) {
+      break;
+    }
+    written += snprintf(&buf[written], len-written, "0x%lx:", pc);
+
+    char sym[256];
+    if (unw_get_proc_name(&cursor, sym, sizeof(sym), &offset) == 0) {
+      written += snprintf(&buf[written], len-written, " (%s+0x%lx) <- ", sym, offset);
+    } else {
+      written += snprintf(&buf[written], len-written, "NO_SYMBOL    ");
+    }
+  }
+  if (written>0) written -= 4;
+  buf[written] = '\0';
+}
 
 static void lap_check(void) {
   if (lap_mpi_initialized == 0) PMPI_Initialized(&lap_mpi_initialized);
   if (lap_initialized) return;
   lap_fptr = tmpfile(); //write to a tmpfile, we don't know our rank yet, until MPI is initialized
+  lap_backtrace_buf = malloc(LAP2_BACKTRACE_BUF_SIZE);
+  assert(lap_backtrace_buf);
   assert(lap_fptr);
+  init_back_trace();
   lap_initialized = 1;
 }
+
 
 static void lap_collect_traces(void) {
     int comm_rank, comm_size;
