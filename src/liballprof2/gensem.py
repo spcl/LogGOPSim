@@ -15,6 +15,26 @@ class AllprofCodegen:
         self.types = defaultdict(list)
         self.BLACKLISTED_FUNCTIONS = [
             'MPI_Pcontrol', #this function is not "forwardable" without more context, so we do not generate a wrapper for it
+            'MPI_Comm_c2f', # this might be a macro i.e., in mpich
+            'MPI_Comm_f2c', # this might be a macro i.e., in mpich
+            'MPI_Group_f2c', # this might be a macro i.e., in mpich
+            'MPI_Group_c2f', # this might be a macro i.e., in mpich
+            'MPI_Win_f2c', # this might be a macro i.e., in mpich
+            'MPI_Win_c2f', # this might be a macro i.e., in mpich
+            'MPI_Type_f2c', # this might be a macro i.e., in mpich
+            'MPI_Type_c2f', # this might be a macro i.e., in mpich
+            'MPI_Errhandler_f2c', # this might be a macro i.e., in mpich
+            'MPI_Errhandler_c2f', # this might be a macro i.e., in mpich
+            'MPI_Request_f2c', # this might be a macro i.e., in mpich
+            'MPI_Request_c2f', # this might be a macro i.e., in mpich
+            'MPI_File_f2c', # this might be a macro i.e., in mpich
+            'MPI_File_c2f', # this might be a macro i.e., in mpich
+            'MPI_Info_f2c', # this might be a macro i.e., in mpich
+            'MPI_Info_c2f', # this might be a macro i.e., in mpich
+            'MPI_Message_f2c', # this might be a macro i.e., in mpich
+            'MPI_Message_c2f', # this might be a macro i.e., in mpich
+            'MPI_Op_f2c', # this might be a macro i.e., in mpich
+            'MPI_Op_c2f', # this might be a macro i.e., in mpich
         ]
 
     def get_count_for_param_in_func(self, param, func):
@@ -180,7 +200,7 @@ class AllprofCodegen:
     def semnatics_for_func(self, node):
         function_name = node.spelling
         return_type = node.result_type.spelling
-        if function_name.startswith("MPI_T_") or function_name == "MPI_Pcontrol":
+        if function_name.startswith("MPI_T_") or (function_name in self.BLACKLISTED_FUNCTIONS):
             return
         self.semantics[function_name] = {}
         self.semantics[function_name]['return_type'] = return_type

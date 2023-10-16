@@ -21,7 +21,7 @@ macro (add_re2c_files _basename)
     COMMAND re2c  ${_re2c_in} -o ${_re2c_out}
     DEPENDS ${_re2c_in}
 #    BYPRODUCTS
-    COMMENT "Generating getopt parser code ..."
+    COMMENT "Generating re2c parser code ..."
     VERBATIM
     )
 
