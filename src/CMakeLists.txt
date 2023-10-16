@@ -52,7 +52,6 @@ target_link_libraries(mpipclog ${MPI_C_LIBRARIES} unwind::unwind)
 target_link_libraries(mpipflog ${MPI_Fortran_LIBRARIES} unwind::unwind)
 
 
-list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 include(CTest)
 # test the c++ toolchain for some pattern
 add_test(NAME schedgen_binomialtreebcast COMMAND schedgen -o schedule.goal --commsize 8 --ptrn binomialtreebcast)
