@@ -23,6 +23,13 @@ Parts of the toolchain
 Building the toolchain
 ======================
 
+On a recent Debian-based distro such as Ubuntu you can install the build dependencies with something like
+```
+sudo apt-get install cmake gengetopt re2c libgraphviz-dev python3 libclang-15-dev llvm-15-dev python3-clang-15 openmpi-bin openmpi-common libopenmpi-dev libunwind-dev
+```
+YMMV, but this is what we use in our CI pipeline.
+
+
 This project uses cmake as its build tool:
 ```
  git clone [This repo]
