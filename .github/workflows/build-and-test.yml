@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Install build dependencies
-      run: sudo apt-get install gengetopt re2c libgraphviz-dev python3 libclang-15-dev llvm-15-dev python3-clang openmpi-bin openmpi-common libopenmpi-dev
+      run: sudo apt-get install gengetopt re2c libgraphviz-dev python3 libclang-15-dev llvm-15-dev python3-clang-15 openmpi-bin openmpi-common libopenmpi-dev
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.

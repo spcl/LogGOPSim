@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.12)
 project(LogGOPSim LANGUAGES C CXX Fortran)
 
+# If several versions of a package provide CMake packages, try to use the latest one.
+set(CMAKE_FIND_PACKAGE_SORT_ORDER NATURAL)
+set(CMAKE_FIND_PACKAGE_SORT_DIRECTION DEC)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
