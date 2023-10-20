@@ -16,13 +16,14 @@
 #include <sys/utsname.h>
 #include <mpi.h>
 
-#include "config.h"
 #include "allprof.h"
 #include "numbers.h"
 #include "sync.h"
 
 #define true 1
 #define false 0
+
+#define F77_FUNC(name,NAME) name ## _
 
 #ifdef HAVE_NBC
 #include <nbc.h>

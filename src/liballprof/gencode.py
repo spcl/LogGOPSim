@@ -1,16 +1,20 @@
+#! /usr/bin/env python3
+
+
+
 ############################################################################################
 # liballprof MPIP Wrapper generator script 
 # 
 # generates C and F77 wrappers for all functions in mpi.h (which was
 # originally stolen from OMPI)
-# timos: now from mpich because ompi is not const-correct
 #
 # Copyright: Indiana University
 # Author: Torsten Hoefler <htor@cs.indiana.edu>
 #
 ############################################################################################
 
-import sys, os, re, string
+import sys, re
+import pathlib 
 
 # erases the spaces at the beginning of the string/line
 def stripspaces(str):
@@ -429,7 +433,7 @@ def gencfunc(name, ret, params):
 
 
 
-      print j[0] + ' not caught for ' + name
+      print(j[0] + ' not caught for ' + name)
       sys.exit(1)
       
   str = str + "\n"
@@ -665,7 +669,7 @@ def genfortfunc(name, ret, params):
 
 
 
-      print j[0] + ' not caught'
+      print(j[0] + ' not caught')
       sys.exit(1)
       
   str = str + "\n"
@@ -691,7 +695,7 @@ def fileread(name):
   try:
     f=open(name, 'r')
   except IOError:
-    print "Error: can\'t find file" + name + "\n"
+    print("Error: can\'t find file" + name + "\n")
   file = ""
   text = "1"
   while text:
@@ -711,17 +715,19 @@ if(len(sys.argv) > 1 and sys.argv[1] == "f77"):
 elif (len(sys.argv) > 1 and sys.argv[1] == "c"):
   c = 1
 else:  
-  print "usage: " + sys.argv[0] + " [f77|c]" 
+  print("usage: " + sys.argv[0] + " [f77|c]")
   sys.exit(1)
-  
 
-str = fileread("template.c")
+source_path = pathlib.Path(__file__).resolve()
+source_dir = source_path.parent
+
+str = fileread(pathlib.Path.joinpath(source_dir, "template.c"))
 
 # read full file into 'file'
-file = fileread("mpi.h_mpich")
+file = fileread(pathlib.Path.joinpath(source_dir, "mpi_header.h"))
 
 # split function-wise at ';'
-functions = string.split(file, ";")
+functions = file.split(";")
 
 for i in functions:
   # erase newlines
@@ -782,4 +788,4 @@ str = str + """#ifdef __cplusplus
 #endif
 """
 
-print str
+print(str)

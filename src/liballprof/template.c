@@ -16,7 +16,9 @@
 #include <sys/utsname.h>
 #include <mpi.h>
 
-#include "config.h"
+#include "fc_mangle.h"
+#define F77_FUNC FortranCInterface_GLOBAL
+
 #include "allprof.h"
 #include "numbers.h"
 #include "sync.h"
@@ -37,11 +39,8 @@
 extern "C" {
 #endif
 
-/* some function definitions for F77 */
-void F77_FUNC_(pmpi_type_extent, PMPI_TYPE_EXTENT)(int *datatype, MPI_Aint *extent, int *ierr);
-void F77_FUNC_(pmpi_type_size, PMPI_TYPE_SIZE) (int *datatype, int *size, int *ierr);
-void F77_FUNC_(pmpi_comm_size, PMPI_COMM_SIZE)(int *comm, int *i, int *ierr);
-void F77_FUNC_(pmpi_comm_rank, PMPI_COMM_RANK)(int *comm, int *i, int *ierr );
+
+
 
 
 #ifdef WRITER_THREAD

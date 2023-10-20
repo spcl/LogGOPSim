@@ -6,6 +6,8 @@
  * 
  *************************************************************************/
 
+#define VERSION 1
+
 /* undef to disable banner printing */
 #define PRINT_BANNER 
 
