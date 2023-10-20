@@ -56,9 +56,12 @@ add_library(mpipclog mpi_c_wrapper.c)
 add_library(mpipflog mpi_f_wrapper.c)
 add_dependencies(mpipclog mpi_wrapper_generated)
 add_dependencies(mpipflog mpi_wrapper_generated)
-target_link_libraries(mpipclog ${MPI_C_LIBRARIES} unwind::unwind)
-target_link_libraries(mpipflog ${MPI_Fortran_LIBRARIES} unwind::unwind)
-
+target_link_libraries(mpipclog ${MPI_C_LIBRARIES})
+target_link_libraries(mpipflog ${MPI_Fortran_LIBRARIES})
+if (Unwind_FOUND) 
+  target_link_libraries(mpipclog unwind::unwind)
+  target_link_libraries(mpipflog unwind::unwind)
+endif()
 
 include(CTest)
 # test the c++ toolchain for some pattern
