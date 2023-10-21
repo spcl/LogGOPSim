@@ -77,15 +77,16 @@ add_test(NAME loggopsim_schedgen2_bcast COMMAND LogGOPSim -f schedule.bin)
 # test liballprof
 
 # test liballprof2
+set(ENV{OMPI_MCA_rmaps_base_oversubscribe} "1") #Open MPI might need oversubscription enabled, MPICH doesn't, their cmdline args are not compatible, so this should work for both
 #c wrapper test
 add_executable(test_lap2_c ${PROJECT_SOURCE_DIR}/../tests/mpi_helloworld.c)
 target_link_libraries(test_lap2_c mpipclog)
-add_test(NAME trace_lap2_c COMMAND ${MPIEXEC_EXECUTABLE} --oversubscribe ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:test_lap2_c>)
+add_test(NAME trace_lap2_c COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:test_lap2_c>)
 add_test(NAME lap2_c_trace_exists  COMMAND ${CMAKE_COMMAND} -E cat lap2-trace-rank-1-of-4.txt)
 
 # fortran wrapper test
 add_executable(test_lap2_f ${PROJECT_SOURCE_DIR}/../tests/mpi_helloworld.f90)
 target_link_libraries(test_lap2_f mpipflog)
-add_test(NAME trace_lap2_f COMMAND ${MPIEXEC_EXECUTABLE} --oversubscribe ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:test_lap2_f>)
+add_test(NAME trace_lap2_f COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:test_lap2_f>)
 add_test(NAME lap2_f_trace_exists  COMMAND ${CMAKE_COMMAND} -E cat lap2-trace-rank-1-of-4.txt )
 

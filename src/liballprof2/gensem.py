@@ -40,8 +40,8 @@ class AllprofCodegen:
     def get_count_for_param_in_func(self, param, func):
         # TODO minimize this
         mapping = {}
-        GET_NDIMS_CART_COMM = "int ndims; MPI_Cartdim_get(comm, &ndims);"
-        GET_COMM_SIZE = "int rank, size; MPI_Comm_size(comm, &size); MPI_Comm_rank(comm, &rank);"
+        GET_NDIMS_CART_COMM = "int ndims; PMPI_Cartdim_get(comm, &ndims);"
+        GET_COMM_SIZE = "int rank, size; PMPI_Comm_size(comm, &size); PMPI_Comm_rank(comm, &rank);"
         GET_NEIGH_GRAPH_COMM = "int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm, &ideg, &odeg, &wted);"
         mapping[("MPI_Cart_create", "dims")] = "ndims"
         mapping[("MPI_Cart_create", "periods")] = "ndims"

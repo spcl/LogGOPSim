@@ -19,6 +19,62 @@ class AllprofCodegen:
                 self.semantics = yaml.safe_load(stream)
             except yaml.YAMLError as exc:
                 print(exc)
+    
+    def get_param_names(self, func):
+        names = []
+        params = self.semantics[func]['params']
+        for p in params:
+            names += [p['name']]
+        return names
+    
+    def get_param_argtype(self, argname, funcname):
+        for p in self.semantics[funcname]['params']:
+            if p['name'] == argname:
+                return p['type']
+        return None
+    
+    def is_ptr_arg(self, argname, funcname):
+        if self.is_ptr(self.get_param_argtype(argname, funcname)):
+            return True
+        else:
+            return False
+  
+    def is_inttype(self, typestr):
+        """ Check if typestr is a type which we can cast to a long long int without loosing precision """
+        if typestr in ['int', 'MPI_Aint', 'MPI_Offset', 'MPI_Count']:
+            return True
+        return False
+    
+    def is_ptr(self, typestr):
+        if typestr in [None, ""]:
+            return True
+        if ("*" in typestr) or ("[" in typestr):
+            return True
+        return False            
+        
+
+    def deref_args(self, expr, funcname):
+        """
+        We use C snippets (which might reference arguments) to describe how many elements arrays contain. 
+        For example a function f might have two arguments, arr and count. And we know (in C syntax) that arr contains count elements.
+        This function translates expr to Fortran-compatible arguments, where all simple args are pointers, and thus need to be
+        dereferenced.
+        """
+        params = self.get_param_names(funcname)
+        for p in params:
+            if self.is_ptr_arg(p, funcname):
+                continue
+            expr_new = ""
+            m = True
+            while m:
+                m = re.match(f"(.*?\W|^){p}($|\W.*)", expr)
+                if m is None:
+                    break
+                expr_new += m.group(1)+f"(*{p})"
+                expr = m.group(2)
+            expr = expr_new + expr
+        return expr
+
 
     def write_prolog(self, mode='c'):
         if mode == 'fortran':
@@ -90,16 +146,7 @@ class AllprofCodegen:
             elems = elems[:-1]
         return elems[-1]
         
-    def is_inttype(self, typestr):
-        """ Check if typestr is a type which we can cast to a long long int without loosing precision """
-        if typestr in ['int', 'MPI_Aint', 'MPI_Offset', 'MPI_Count']:
-            return True
-        return False
-    
-    def is_ptr(self, typestr):
-        if ("*" in typestr) or ("[" in typestr):
-            return True
-        return False
+ 
     
     def trace_inttype(self, name, typestr, basetype, is_ptr, sep):
         deref = ""
@@ -156,14 +203,30 @@ class AllprofCodegen:
             print(f"{typestr} tracer not implemmented (appears in {func}, basetype is {basetype})")
         return ""
 
+    def tracer_for_simple_arg_fortran(self, name, typestr, func, sep=":"):
+        # strip const, shouldn't make a difference how we trace
+        if typestr.startswith("const "):
+            typestr = typestr[6:]
+        # handle this special case first
+        if typestr == "int[3]":
+            return f"  WRITE_TRACE(\"[%i,%i,%i]{sep}\", *(&({name})+0), *(&({name})+1), *(&({name})+2));\n"
+        basetype = self.get_basetype(typestr)
+        if not self.is_ptr_arg(name, func):
+            return f"  WRITE_TRACE(\"%lli{sep}\", (long long int) *{name});\n"
+        else:
+            return f"  WRITE_TRACE(\"%lli{sep}\", (long long int) {name});\n"
+
+
     def write_argument_tracers(self, func, mode):
-        if mode == 'fortran':
-            return
         # collect all needed prologs (code that we need to decide how many elemnts are in an array, like getting comm size)
         prologs = []
         for sem_param in self.semantics[func]['params']:
             if ('prolog_elem_count' in sem_param) and (sem_param['prolog_elem_count'] is not None):
-                prologs.append(sem_param['prolog_elem_count'])
+                if mode == 'c':
+                    prologs.append(sem_param['prolog_elem_count'])
+                if mode == 'fortran':
+                    prolog = self.deref_args(sem_param['prolog_elem_count'], func)
+                    prologs.append(prolog)
         prologs = list(set(prologs))
         if len(prologs) > 0:
             self.outfile.write("\n".join(prologs)+"\n//end of prologs\n")
@@ -176,6 +239,8 @@ class AllprofCodegen:
                 elem_count_expr = "0"
                 if ('elem_count' in sem_param) and (sem_param['elem_count'] is not None):
                     elem_count_expr = sem_param['elem_count']
+                    if (mode == 'fortran'):
+                        elem_count_expr = self.deref_args(elem_count_expr, func)
                 self.outfile.write(f"  WRITE_TRACE(\"%p,%i[\", (void*) {sem_param['name']}, (int) {elem_count_expr});\n")
                 self.outfile.write(f"  if (0) {{  }} else {{ \n")
                 self.outfile.write(f"    for (int trace_elem_idx=0; trace_elem_idx<{elem_count_expr}; trace_elem_idx++) "+"{\n")
@@ -184,13 +249,19 @@ class AllprofCodegen:
                 name = sem_param['name'] + "[trace_elem_idx]"
                 basetype, brackets = self.split_type(sem_param['type'])
                 typestr = basetype + brackets[2:]
-                code = self.tracer_for_simple_arg(name, typestr, func, sep=";")
+                if mode == 'c':
+                    code = self.tracer_for_simple_arg(name, typestr, func, sep=";")
+                else:
+                    code = self.tracer_for_simple_arg_fortran(name, typestr, func, sep=";")
                 self.outfile.write("    "+code)
                 self.outfile.write("  }\n")  
                 self.outfile.write("  WRITE_TRACE(\"]%s\", \":\");\n")
                 self.outfile.write("}\n")               
             else:
-                code = self.tracer_for_simple_arg(sem_param['name'], sem_param['type'], func, sep=":")
+                if mode == 'c':
+                    code = self.tracer_for_simple_arg(sem_param['name'], sem_param['type'], func, sep=":")
+                else:
+                    code = self.tracer_for_simple_arg_fortran(sem_param['name'], sem_param['type'], func, sep=":")
                 self.outfile.write("  " + code)
 
 
@@ -198,7 +269,10 @@ class AllprofCodegen:
         for func in self.semantics:
             param_signatures = []
             for param in self.semantics[func]['params']:
-                param_signatures.append(f"int* {param['name']}")
+                argtype = "int*"
+                if "char" in self.get_param_argtype(param['name'], func):
+                    argtype = "char*"
+                param_signatures.append(f"{argtype} {param['name']}")
             param_signatures.append("int* ierr")
             params = ", ".join(param_signatures)
             pfunc = f"P{func}"
@@ -223,7 +297,10 @@ class AllprofCodegen:
                     type_prefix, type_suffix = self.split_type(param['type'])
                     param_signatures.append(f"{type_prefix} {param['name']}{type_suffix}")
                 elif mode == 'fortran':
-                    param_signatures.append(f"int* {param['name']}")
+                    argtype = "int*"
+                    if "char" in self.get_param_argtype(param['name'], func):
+                        argtype = "char*"
+                    param_signatures.append(f"{argtype} {param['name']}")
             if mode == 'fortran':
                 param_signatures.append("int* ierr")
             params = ", ".join(param_signatures)

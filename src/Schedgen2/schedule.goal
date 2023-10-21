@@ -1,0 +1,44 @@
+num_ranks 8
+
+rank 0 {
+l1: send 8b to 1 tag 42001
+l2: send 8b to 2 tag 42001
+l3: send 8b to 4 tag 42001
+}
+
+rank 1 {
+l4: recv 8b from 0 tag 42001
+l5: send 8b to 3 tag 42001
+l6: send 8b to 5 tag 42001
+l5 requires l4
+l6 requires l4
+}
+
+rank 2 {
+l7: recv 8b from 0 tag 42001
+l8: send 8b to 6 tag 42001
+l8 requires l7
+}
+
+rank 3 {
+l9: recv 8b from 1 tag 42001
+l10: send 8b to 7 tag 42001
+l10 requires l9
+}
+
+rank 4 {
+l11: recv 8b from 0 tag 42001
+}
+
+rank 5 {
+l12: recv 8b from 1 tag 42001
+}
+
+rank 6 {
+l13: recv 8b from 2 tag 42001
+}
+
+rank 7 {
+l14: recv 8b from 3 tag 42001
+}
+
