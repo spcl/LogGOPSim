@@ -123,7 +123,10 @@ class AllprofCodegen:
             self.outfile.write(f"  pmpi_retval = {pfunc}({argstr});\n")
         elif mode == 'fortran':
             # in fortran mpi calls return void
+            self.outfile.write(f"printf(\"before {pfunc}\\n\");\n")
             self.outfile.write(f" FortranCInterface_GLOBAL({pfunc.lower()},{pfunc.upper()})({argstr});\n")
+            self.outfile.write(f"printf(\"after {pfunc}\\n\");\n")
+            self
         if func in ["MPI_Abort", "MPI_Finalize"]:
             self.outfile.write("  lap_mpi_initialized = 0;\n")
 
@@ -214,7 +217,10 @@ class AllprofCodegen:
         if not self.is_ptr_arg(name, func):
             return f"  WRITE_TRACE(\"%lli{sep}\", (long long int) *{name});\n"
         else:
-            return f"  WRITE_TRACE(\"%lli{sep}\", (long long int) {name});\n"
+            if "[" in name:
+                return f"  WRITE_TRACE(\"%lli{sep}\", (long long int) {name});\n"
+            else:
+                return f"  WRITE_TRACE(\"%lli{sep}\", (long long int) *{name});\n"
 
 
     def write_argument_tracers(self, func, mode):
@@ -342,6 +348,11 @@ if __name__ == "__main__":
     codegen.write_prolog(mode='c')
     codegen.produce_tracers(mode='c')
     codegen.outfile.close()
+
+    # modify the semantics for fortran
+    codegen.semantics["MPI_Init"]['params'] = []
+    codegen.semantics["MPI_Init_thread"]['params'] = []
+
     codegen.outfile = open(args.fortran_output_file, "w")
     codegen.write_prolog(mode='fortran')
     codegen.produce_fortran_pmpi_prototypes()
