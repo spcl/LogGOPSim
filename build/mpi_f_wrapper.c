@@ -3425,11 +3425,6 @@ void FortranCInterface_GLOBAL(mpi_file_write_shared,MPI_FILE_WRITE_SHARED) (int*
 }
 
 void FortranCInterface_GLOBAL(mpi_finalize,MPI_FINALIZE) (int* ierr) {
-  if (lap_tracing_enabled == 0) { 
-    int pmpi_retval; FortranCInterface_GLOBAL(pmpi_finalize,PMPI_FINALIZE)(ierr);
-  lap_mpi_initialized = 0;
-    return;
-  }
   lap_check();
   WRITE_TRACE("%s", "MPI_Finalize:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);

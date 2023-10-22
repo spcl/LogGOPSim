@@ -341,7 +341,8 @@ class AllprofCodegen:
                 self.produce_pcontrol(mode)
                 self.outfile.write("}\n\n")
                 continue
-            self.produce_pmpi_only_if_tracing_disabled(func, mode)
+            if func != "MPI_Finalize":
+                self.produce_pmpi_only_if_tracing_disabled(func, mode)
             self.write_tracer_prolog(func, mode)
             if not delay_pmpi:
                 self.write_pmpi_call(func, mode)

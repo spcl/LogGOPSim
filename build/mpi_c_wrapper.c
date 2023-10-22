@@ -3322,11 +3322,6 @@ int MPI_File_write_shared (MPI_File fh, const void * buf, int count, MPI_Datatyp
 }
 
 int MPI_Finalize () {
-  if (lap_tracing_enabled == 0) { 
-    int pmpi_retval;  pmpi_retval = PMPI_Finalize();
-  lap_mpi_initialized = 0;
-    return pmpi_retval;
-  }
   int pmpi_retval;
   lap_check();
   WRITE_TRACE("%s", "MPI_Finalize:");
