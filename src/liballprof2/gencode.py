@@ -119,14 +119,13 @@ class AllprofCodegen:
             args.append("ierr")
         argstr = ", ".join(args)
         pfunc = f"P{func}"
+        #self.outfile.write(f"fprintf(stderr, \"before {pfunc}\\n\");\n")
         if mode == 'c':
             self.outfile.write(f"  pmpi_retval = {pfunc}({argstr});\n")
         elif mode == 'fortran':
             # in fortran mpi calls return void
-            self.outfile.write(f"printf(\"before {pfunc}\\n\");\n")
             self.outfile.write(f" FortranCInterface_GLOBAL({pfunc.lower()},{pfunc.upper()})({argstr});\n")
-            self.outfile.write(f"printf(\"after {pfunc}\\n\");\n")
-            self
+        #self.outfile.write(f"fprintf(stderr, \"after {pfunc}\\n\");\n")
         if func in ["MPI_Abort", "MPI_Finalize"]:
             self.outfile.write("  lap_mpi_initialized = 0;\n")
 
@@ -286,6 +285,29 @@ class AllprofCodegen:
         self.outfile.write("\n\n")
 
 
+    def produce_pmpi_only_if_tracing_disabled(self, func, mode):
+        self.outfile.write(f"  if (lap_tracing_enabled == 0) {{ \n")
+        self.outfile.write(f"    {self.semantics[func]['return_type']} pmpi_retval;")
+        self.write_pmpi_call(func, mode)
+        if mode == 'c':
+            self.outfile.write(f"    return pmpi_retval;\n")
+        if mode == 'fortran':
+            self.outfile.write(f"    return;\n")
+        self.outfile.write(f"  }}\n")
+
+
+    def produce_pcontrol(self, mode):
+        deref = ""
+        if mode == 'fortran':
+            deref = "*"
+        self.outfile.write(f"  if ({deref}level == 0) lap_tracing_enabled = 0;\n")
+        self.outfile.write(f"  if ({deref}level  > 0) lap_tracing_enabled = 1;\n")
+        self.outfile.write(f"  if ({deref}level  > 1) lap_elem_tracing_enabled = 1;\n")
+        self.outfile.write(f"  if ({deref}level  > 2) lap_backtrace_enabled = 1;\n")
+        if mode == 'c':
+            self.outfile.write(f"  return MPI_SUCCESS;\n")
+    
+
     def produce_tracers(self, mode='c'):
         for func in self.semantics:
 
@@ -315,7 +337,11 @@ class AllprofCodegen:
                 self.outfile.write(f"{self.semantics[func]['return_type']} {func} ({params})"+" {\n")
             elif mode == 'fortran':
                 self.outfile.write(f"void FortranCInterface_GLOBAL({func.lower()},{func.upper()}) ({params})"+" {\n")
-
+            if func == "MPI_Pcontrol":
+                self.produce_pcontrol(mode)
+                self.outfile.write("}\n\n")
+                continue
+            self.produce_pmpi_only_if_tracing_disabled(func, mode)
             self.write_tracer_prolog(func, mode)
             if not delay_pmpi:
                 self.write_pmpi_call(func, mode)
@@ -352,6 +378,7 @@ if __name__ == "__main__":
     # modify the semantics for fortran
     codegen.semantics["MPI_Init"]['params'] = []
     codegen.semantics["MPI_Init_thread"]['params'] = []
+    codegen.semantics["MPI_Pcontrol"]['params'].pop()
 
     codegen.outfile = open(args.fortran_output_file, "w")
     codegen.write_prolog(mode='fortran')

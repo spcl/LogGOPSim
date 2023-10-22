@@ -14,7 +14,6 @@ class AllprofCodegen:
         self.semantics = {}
         self.types = defaultdict(list)
         self.BLACKLISTED_FUNCTIONS = [
-            'MPI_Pcontrol', #this function is not "forwardable" without more context, so we do not generate a wrapper for it
             'MPI_Comm_c2f', # this might be a macro i.e., in mpich
             'MPI_Comm_f2c', # this might be a macro i.e., in mpich
             'MPI_Group_f2c', # this might be a macro i.e., in mpich
@@ -221,6 +220,12 @@ class AllprofCodegen:
                 param_dict['trace_each_elem'] = True
             self.semantics[function_name]['params'].append(param_dict)
 
+        # clang doesn't work with varargs???
+        if function_name == "MPI_Pcontrol":
+            param_dict = {}
+            param_dict['name'] = "..."
+            param_dict['type'] = ""
+            self.semantics[function_name]['params'].append(param_dict)
 
     def process_func(self, node, mode):
         if mode == 'semantics':

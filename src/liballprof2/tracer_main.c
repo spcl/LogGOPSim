@@ -11,10 +11,14 @@
 #define WRITE_TRACE(fmt, args...) fprintf(lap_fptr, fmt, args)
 
 FILE* lap_fptr = NULL;
+char* lap_backtrace_buf = NULL;
 int lap_initialized = 0;
 int lap_mpi_initialized = 0;
+
+int lap_tracing_enabled = 1;
 int lap_backtrace_enabled = 1;
-char* lap_backtrace_buf = NULL;
+int lap_elem_tracing_enabled = 1;
+
 
 static void init_back_trace(void) {
 
