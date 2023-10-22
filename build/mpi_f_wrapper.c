@@ -467,10 +467,6 @@ void FortranCInterface_GLOBAL(pmpi_wtick,PMPI_WTICK) (int* ierr);
 void FortranCInterface_GLOBAL(pmpi_wtime,PMPI_WTIME) (int* ierr);
 
 
-void FortranCInterface_GLOBAL(lap_write_epoch,LAP_WRITE_EPOCH) (int* epoch) {
-  WRITE_TRACE("# epoch %i\n", *epoch);
-}
-
 void FortranCInterface_GLOBAL(mpi_abort,MPI_ABORT) (int* comm, int* errorcode, int* ierr) {
   if (lap_tracing_enabled == 0) { 
     int pmpi_retval; FortranCInterface_GLOBAL(pmpi_abort,PMPI_ABORT)(comm, errorcode, ierr);
@@ -5835,6 +5831,7 @@ void FortranCInterface_GLOBAL(mpi_pcontrol,MPI_PCONTROL) (int* level, int* ierr)
   if (*level == 1) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }
   if (*level == 2) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 0; }
   if (*level >= 3) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 1; }
+  WRITE_TRACE("# pcontrol with value / epoch %i)\n", *level);
 }
 
 void FortranCInterface_GLOBAL(mpi_probe,MPI_PROBE) (int* source, int* tag, int* comm, int* status, int* ierr) {

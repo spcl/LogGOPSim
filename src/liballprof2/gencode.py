@@ -293,18 +293,6 @@ class AllprofCodegen:
             self.outfile.write(f"void FortranCInterface_GLOBAL({pfunc.lower()},{pfunc.upper()}) ({params})"+";\n")
         self.outfile.write("\n\n")
 
-    def produce_lap_util(self, mode):
-        ref = ""
-        if mode == 'fortran':
-            ref = "*"
-        pfunc = "lap_write_epoch"
-        params = f"int{ref} epoch"
-        if mode == 'fortran':
-            self.outfile.write(f"void FortranCInterface_GLOBAL({pfunc.lower()},{pfunc.upper()}) ({params})"+" {\n")
-        else:
-            self.outfile.write(f"void {pfunc}({params})"+" {\n")
-        self.outfile.write(f"  WRITE_TRACE(\"# epoch %i\\n\", {ref}epoch);\n")
-        self.outfile.write("}\n\n")
 
     def produce_pmpi_only_if_tracing_disabled(self, func, mode):
         self.outfile.write(f"  if (lap_tracing_enabled == 0) {{ \n")
@@ -325,6 +313,7 @@ class AllprofCodegen:
         self.outfile.write(f"  if ({deref}level == 1) {{ lap_tracing_enabled = 1; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }}\n")
         self.outfile.write(f"  if ({deref}level == 2) {{ lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 0; }}\n")
         self.outfile.write(f"  if ({deref}level >= 3) {{ lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 1; }}\n")
+        self.outfile.write(f"  WRITE_TRACE(\"# pcontrol with value / epoch %i)\\n\", {deref}level);\n")
         if mode == 'c':
             self.outfile.write(f"  return MPI_SUCCESS;\n")
     
@@ -394,7 +383,6 @@ if __name__ == "__main__":
     codegen.parse_semantics(args.semantics_file)
     codegen.outfile = open(args.c_output_file, "w")
     codegen.write_prolog(mode='c')
-    codegen.produce_lap_util(mode='c')
     codegen.produce_tracers(mode='c')
     codegen.outfile.close()
 
@@ -406,7 +394,6 @@ if __name__ == "__main__":
     codegen.outfile = open(args.fortran_output_file, "w")
     codegen.write_prolog(mode='fortran')
     codegen.produce_fortran_pmpi_prototypes()
-    codegen.produce_lap_util(mode='fortran')
     codegen.produce_tracers(mode='fortran')
     codegen.outfile.close()
 

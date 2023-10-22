@@ -110,10 +110,6 @@ static void lap_collect_traces(void) {
     free(chunkbuf);
 }
 
-void lap_write_epoch(int epoch) {
-  WRITE_TRACE("# epoch %i\n", epoch);
-}
-
 int MPI_Abort (MPI_Comm comm, int errorcode) {
   if (lap_tracing_enabled == 0) { 
     int pmpi_retval;  pmpi_retval = PMPI_Abort(comm, errorcode);
@@ -5925,6 +5921,7 @@ int MPI_Pcontrol (const int level,  ...) {
   if (level == 1) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }
   if (level == 2) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 0; }
   if (level >= 3) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 1; }
+  WRITE_TRACE("# pcontrol with value / epoch %i)\n", level);
   return MPI_SUCCESS;
 }
 
