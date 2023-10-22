@@ -81,6 +81,7 @@ class AllprofCodegen:
         expr = re.sub(r"PMPI_Cartdim_get\((.+?),(.+?)\)", r"PMPI_Cartdim_get( MPI_Comm_f2c(\1), \2)", expr)
         expr = re.sub(r"PMPI_Comm_size\((.+?),(.+?)\)", r"PMPI_Comm_size( MPI_Comm_f2c(\1), \2)", expr)
         expr = re.sub(r"PMPI_Comm_rank\((.+?),(.+?)\)", r"PMPI_Comm_rank( MPI_Comm_f2c(\1), \2)", expr)
+        expr = re.sub(r"PMPI_Dist_graph_neighbors_count\((.+?),(.+?),(.+?),(.+?)\)", r"PMPI_Dist_graph_neighbors_count( MPI_Comm_f2c(\1), \2, \3, \4)", expr)
         return expr
 
     def write_prolog(self, mode='c'):

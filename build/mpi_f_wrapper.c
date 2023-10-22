@@ -4637,7 +4637,7 @@ void FortranCInterface_GLOBAL(mpi_ineighbor_allgatherv,MPI_INEIGHBOR_ALLGATHERV)
   WRITE_TRACE("%s", "MPI_Ineighbor_allgatherv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_ineighbor_allgatherv,PMPI_INEIGHBOR_ALLGATHERV)(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, comm, request, ierr);
-int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
+int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count( MPI_Comm_f2c((*comm)),  &ideg,  &odeg,  &wted);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
     WRITE_TRACE("%lli:", (long long int) *sendcount);
@@ -4700,7 +4700,7 @@ void FortranCInterface_GLOBAL(mpi_ineighbor_alltoallv,MPI_INEIGHBOR_ALLTOALLV) (
   WRITE_TRACE("%s", "MPI_Ineighbor_alltoallv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_ineighbor_alltoallv,PMPI_INEIGHBOR_ALLTOALLV)(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm, request, ierr);
-int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
+int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count( MPI_Comm_f2c((*comm)),  &ideg,  &odeg,  &wted);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) odeg);
@@ -4752,7 +4752,7 @@ void FortranCInterface_GLOBAL(mpi_ineighbor_alltoallw,MPI_INEIGHBOR_ALLTOALLW) (
   WRITE_TRACE("%s", "MPI_Ineighbor_alltoallw:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_ineighbor_alltoallw,PMPI_INEIGHBOR_ALLTOALLW)(sendbuf, sendcounts, sdispls, sendtypes, recvbuf, recvcounts, rdispls, recvtypes, comm, request, ierr);
-int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
+int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count( MPI_Comm_f2c((*comm)),  &ideg,  &odeg,  &wted);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) odeg);
@@ -5490,7 +5490,7 @@ void FortranCInterface_GLOBAL(mpi_neighbor_allgatherv,MPI_NEIGHBOR_ALLGATHERV) (
   WRITE_TRACE("%s", "MPI_Neighbor_allgatherv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_neighbor_allgatherv,PMPI_NEIGHBOR_ALLGATHERV)(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, comm, ierr);
-int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
+int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count( MPI_Comm_f2c((*comm)),  &ideg,  &odeg,  &wted);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
     WRITE_TRACE("%lli:", (long long int) *sendcount);
@@ -5551,7 +5551,7 @@ void FortranCInterface_GLOBAL(mpi_neighbor_alltoallv,MPI_NEIGHBOR_ALLTOALLV) (in
   WRITE_TRACE("%s", "MPI_Neighbor_alltoallv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_neighbor_alltoallv,PMPI_NEIGHBOR_ALLTOALLV)(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm, ierr);
-int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
+int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count( MPI_Comm_f2c((*comm)),  &ideg,  &odeg,  &wted);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) odeg);
@@ -5602,7 +5602,7 @@ void FortranCInterface_GLOBAL(mpi_neighbor_alltoallw,MPI_NEIGHBOR_ALLTOALLW) (in
   WRITE_TRACE("%s", "MPI_Neighbor_alltoallw:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_neighbor_alltoallw,PMPI_NEIGHBOR_ALLTOALLW)(sendbuf, sendcounts, sdispls, sendtypes, recvbuf, recvcounts, rdispls, recvtypes, comm, ierr);
-int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
+int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count( MPI_Comm_f2c((*comm)),  &ideg,  &odeg,  &wted);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) odeg);
