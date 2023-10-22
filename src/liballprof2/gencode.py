@@ -300,10 +300,10 @@ class AllprofCodegen:
         deref = ""
         if mode == 'fortran':
             deref = "*"
-        self.outfile.write(f"  if ({deref}level == 0) lap_tracing_enabled = 0;\n")
-        self.outfile.write(f"  if ({deref}level  > 0) lap_tracing_enabled = 1;\n")
-        self.outfile.write(f"  if ({deref}level  > 1) lap_elem_tracing_enabled = 1;\n")
-        self.outfile.write(f"  if ({deref}level  > 2) lap_backtrace_enabled = 1;\n")
+        self.outfile.write(f"  if ({deref}level == 0) {{ lap_tracing_enabled = 0; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }}\n")
+        self.outfile.write(f"  if ({deref}level == 1) {{ lap_tracing_enabled = 1; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }}\n")
+        self.outfile.write(f"  if ({deref}level == 2) {{ lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 0; }}\n")
+        self.outfile.write(f"  if ({deref}level >= 3) {{ lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 1; }}\n")
         if mode == 'c':
             self.outfile.write(f"  return MPI_SUCCESS;\n")
     
