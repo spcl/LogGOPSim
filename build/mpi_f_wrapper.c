@@ -5832,10 +5832,10 @@ void FortranCInterface_GLOBAL(mpi_pack_size,MPI_PACK_SIZE) (int* incount, int* d
 }
 
 void FortranCInterface_GLOBAL(mpi_pcontrol,MPI_PCONTROL) (int* level, int* ierr) {
-  if (*level == 0) lap_tracing_enabled = 0;
-  if (*level  > 0) lap_tracing_enabled = 1;
-  if (*level  > 1) lap_elem_tracing_enabled = 1;
-  if (*level  > 2) lap_backtrace_enabled = 1;
+  if (*level == 0) { lap_tracing_enabled = 0; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }
+  if (*level == 1) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }
+  if (*level == 2) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 0; }
+  if (*level >= 3) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 1; }
 }
 
 void FortranCInterface_GLOBAL(mpi_probe,MPI_PROBE) (int* source, int* tag, int* comm, int* status, int* ierr) {

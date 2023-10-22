@@ -5922,10 +5922,10 @@ int MPI_Pack_size (int incount, MPI_Datatype datatype, MPI_Comm comm, int * size
 }
 
 int MPI_Pcontrol (const int level,  ...) {
-  if (level == 0) lap_tracing_enabled = 0;
-  if (level  > 0) lap_tracing_enabled = 1;
-  if (level  > 1) lap_elem_tracing_enabled = 1;
-  if (level  > 2) lap_backtrace_enabled = 1;
+  if (level == 0) { lap_tracing_enabled = 0; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }
+  if (level == 1) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }
+  if (level == 2) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 0; }
+  if (level >= 3) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 1; }
   return MPI_SUCCESS;
 }
 
