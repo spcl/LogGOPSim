@@ -110,6 +110,10 @@ static void lap_collect_traces(void) {
     free(chunkbuf);
 }
 
+void lap_write_epoch(int epoch) {
+  WRITE_TRACE("# epoch %i\n", epoch);
+}
+
 int MPI_Abort (MPI_Comm comm, int errorcode) {
   if (lap_tracing_enabled == 0) { 
     int pmpi_retval;  pmpi_retval = PMPI_Abort(comm, errorcode);

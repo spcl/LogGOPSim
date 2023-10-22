@@ -467,6 +467,10 @@ void FortranCInterface_GLOBAL(pmpi_wtick,PMPI_WTICK) (int* ierr);
 void FortranCInterface_GLOBAL(pmpi_wtime,PMPI_WTIME) (int* ierr);
 
 
+void FortranCInterface_GLOBAL(lap_write_epoch,LAP_WRITE_EPOCH) (int* epoch) {
+  WRITE_TRACE("# epoch %i\n", *epoch);
+}
+
 void FortranCInterface_GLOBAL(mpi_abort,MPI_ABORT) (int* comm, int* errorcode, int* ierr) {
   if (lap_tracing_enabled == 0) { 
     int pmpi_retval; FortranCInterface_GLOBAL(pmpi_abort,PMPI_ABORT)(comm, errorcode, ierr);
