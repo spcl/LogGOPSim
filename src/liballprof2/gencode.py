@@ -326,7 +326,7 @@ class AllprofCodegen:
                 return
 
             delay_pmpi = False # usually we write the trace after the pmpi call, however, if the function frees some of its arguments we want to do it before
-            if func.endswith("_free") or ("_delete_" in func) or (func == "MPI_Finalize"):
+            if func.endswith("_free") or func.endswith("Free_mem") or ("_delete_" in func) or (func == "MPI_Finalize"):
                 delay_pmpi = True
 
             param_signatures = []

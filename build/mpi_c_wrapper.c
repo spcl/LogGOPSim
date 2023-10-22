@@ -3365,8 +3365,8 @@ int MPI_Free_mem (void * base) {
   lap_check();
   WRITE_TRACE("%s", "MPI_Free_mem:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
-  pmpi_retval = PMPI_Free_mem(base);
   WRITE_TRACE("%p:", base);
+  pmpi_retval = PMPI_Free_mem(base);
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);

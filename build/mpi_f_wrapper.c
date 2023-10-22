@@ -3463,8 +3463,8 @@ void FortranCInterface_GLOBAL(mpi_free_mem,MPI_FREE_MEM) (int* base, int* ierr) 
   lap_check();
   WRITE_TRACE("%s", "MPI_Free_mem:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
- FortranCInterface_GLOBAL(pmpi_free_mem,PMPI_FREE_MEM)(base, ierr);
     WRITE_TRACE("%lli:", (long long int) *base);
+ FortranCInterface_GLOBAL(pmpi_free_mem,PMPI_FREE_MEM)(base, ierr);
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
