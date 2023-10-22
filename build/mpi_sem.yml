@@ -2316,13 +2316,13 @@ MPI_Ineighbor_allgatherv:
     type: void *
   - elem_count: ideg
     name: recvcounts
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
   - elem_count: ideg
     name: displs
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
@@ -2358,13 +2358,13 @@ MPI_Ineighbor_alltoallv:
     type: const void *
   - elem_count: odeg
     name: sendcounts
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
   - elem_count: odeg
     name: sdispls
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
@@ -2374,13 +2374,13 @@ MPI_Ineighbor_alltoallv:
     type: void *
   - elem_count: ideg
     name: recvcounts
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
   - elem_count: ideg
     name: rdispls
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
@@ -2397,19 +2397,19 @@ MPI_Ineighbor_alltoallw:
     type: const void *
   - elem_count: odeg
     name: sendcounts
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
   - elem_count: odeg
     name: sdispls
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const MPI_Aint[]
   - elem_count: odeg
     name: sendtypes
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const MPI_Datatype[]
@@ -2417,19 +2417,19 @@ MPI_Ineighbor_alltoallw:
     type: void *
   - elem_count: ideg
     name: recvcounts
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
   - elem_count: ideg
     name: rdispls
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const MPI_Aint[]
   - elem_count: ideg
     name: recvtypes
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const MPI_Datatype[]
@@ -2850,13 +2850,13 @@ MPI_Neighbor_allgatherv:
     type: void *
   - elem_count: ideg
     name: recvcounts
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
   - elem_count: ideg
     name: displs
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
@@ -2888,13 +2888,13 @@ MPI_Neighbor_alltoallv:
     type: const void *
   - elem_count: odeg
     name: sendcounts
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
   - elem_count: odeg
     name: sdispls
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
@@ -2904,13 +2904,13 @@ MPI_Neighbor_alltoallv:
     type: void *
   - elem_count: ideg
     name: recvcounts
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
   - elem_count: ideg
     name: rdispls
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
@@ -2925,19 +2925,19 @@ MPI_Neighbor_alltoallw:
     type: const void *
   - elem_count: odeg
     name: sendcounts
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
   - elem_count: odeg
     name: sdispls
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const MPI_Aint[]
   - elem_count: odeg
     name: sendtypes
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const MPI_Datatype[]
@@ -2945,19 +2945,19 @@ MPI_Neighbor_alltoallw:
     type: void *
   - elem_count: ideg
     name: recvcounts
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const int[]
   - elem_count: ideg
     name: rdispls
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const MPI_Aint[]
   - elem_count: ideg
     name: recvtypes
-    prolog_elem_count: int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm,
+    prolog_elem_count: int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm,
       &ideg, &odeg, &wted);
     trace_each_elem: true
     type: const MPI_Datatype[]

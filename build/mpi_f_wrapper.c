@@ -597,21 +597,21 @@ void FortranCInterface_GLOBAL(mpi_allgatherv,MPI_ALLGATHERV) (int* sendbuf, int*
   WRITE_TRACE("%s", "MPI_Allgatherv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_allgatherv,PMPI_ALLGATHERV)(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, comm, ierr);
-int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
+int rank, size; PMPI_Comm_size( MPI_Comm_f2c((*comm)),  &size); PMPI_Comm_rank( MPI_Comm_f2c((*comm)),  &rank);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
     WRITE_TRACE("%lli:", (long long int) *sendcount);
     WRITE_TRACE("%lli:", (long long int) *sendtype);
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) displs, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) displs[trace_elem_idx]);
   }
@@ -699,18 +699,18 @@ void FortranCInterface_GLOBAL(mpi_alltoallv,MPI_ALLTOALLV) (int* sendbuf, int* s
   WRITE_TRACE("%s", "MPI_Alltoallv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_alltoallv,PMPI_ALLTOALLV)(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm, ierr);
-int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
+int rank, size; PMPI_Comm_size( MPI_Comm_f2c((*comm)),  &size); PMPI_Comm_rank( MPI_Comm_f2c((*comm)),  &rank);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sdispls, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sdispls[trace_elem_idx]);
   }
@@ -719,14 +719,14 @@ int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
     WRITE_TRACE("%lli:", (long long int) *sendtype);
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) rdispls, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) rdispls[trace_elem_idx]);
   }
@@ -750,25 +750,25 @@ void FortranCInterface_GLOBAL(mpi_alltoallw,MPI_ALLTOALLW) (int* sendbuf, int* s
   WRITE_TRACE("%s", "MPI_Alltoallw:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_alltoallw,PMPI_ALLTOALLW)(sendbuf, sendcounts, sdispls, sendtypes, recvbuf, recvcounts, rdispls, recvtypes, comm, ierr);
-int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
+int rank, size; PMPI_Comm_size( MPI_Comm_f2c((*comm)),  &size); PMPI_Comm_rank( MPI_Comm_f2c((*comm)),  &rank);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sdispls, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sdispls[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sendtypes, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendtypes[trace_elem_idx]);
   }
@@ -776,21 +776,21 @@ int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
 }
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) rdispls, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) rdispls[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) recvtypes, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvtypes[trace_elem_idx]);
   }
@@ -1010,7 +1010,7 @@ void FortranCInterface_GLOBAL(mpi_cart_coords,MPI_CART_COORDS) (int* comm, int* 
     WRITE_TRACE("%lli:", (long long int) *rank);
     WRITE_TRACE("%lli:", (long long int) *maxdims);
   WRITE_TRACE("%p,%i[", (void*) coords, (int) (*maxdims));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*maxdims); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) coords[trace_elem_idx]);
   }
@@ -1035,14 +1035,14 @@ void FortranCInterface_GLOBAL(mpi_cart_create,MPI_CART_CREATE) (int* old_comm, i
     WRITE_TRACE("%lli:", (long long int) *old_comm);
     WRITE_TRACE("%lli:", (long long int) *ndims);
   WRITE_TRACE("%p,%i[", (void*) dims, (int) (*ndims));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*ndims); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) dims[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) periods, (int) (*ndims));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*ndims); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) periods[trace_elem_idx]);
   }
@@ -1069,21 +1069,21 @@ void FortranCInterface_GLOBAL(mpi_cart_get,MPI_CART_GET) (int* comm, int* maxdim
     WRITE_TRACE("%lli:", (long long int) *comm);
     WRITE_TRACE("%lli:", (long long int) *maxdims);
   WRITE_TRACE("%p,%i[", (void*) dims, (int) (*maxdims));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*maxdims); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) dims[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) periods, (int) (*maxdims));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*maxdims); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) periods[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) coords, (int) (*maxdims));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*maxdims); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) coords[trace_elem_idx]);
   }
@@ -1108,14 +1108,14 @@ void FortranCInterface_GLOBAL(mpi_cart_map,MPI_CART_MAP) (int* comm, int* ndims,
     WRITE_TRACE("%lli:", (long long int) *comm);
     WRITE_TRACE("%lli:", (long long int) *ndims);
   WRITE_TRACE("%p,%i[", (void*) dims, (int) (*ndims));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*ndims); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) dims[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) periods, (int) (*ndims));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*ndims); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) periods[trace_elem_idx]);
   }
@@ -1138,11 +1138,11 @@ void FortranCInterface_GLOBAL(mpi_cart_rank,MPI_CART_RANK) (int* comm, int* coor
   WRITE_TRACE("%s", "MPI_Cart_rank:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_cart_rank,PMPI_CART_RANK)(comm, coords, rank, ierr);
-int ndims; PMPI_Cartdim_get((*comm), &ndims);
+int ndims; PMPI_Cartdim_get( MPI_Comm_f2c((*comm)),  &ndims);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *comm);
   WRITE_TRACE("%p,%i[", (void*) coords, (int) ndims);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ndims; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) coords[trace_elem_idx]);
   }
@@ -1186,11 +1186,11 @@ void FortranCInterface_GLOBAL(mpi_cart_sub,MPI_CART_SUB) (int* comm, int* remain
   WRITE_TRACE("%s", "MPI_Cart_sub:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_cart_sub,PMPI_CART_SUB)(comm, remain_dims, new_comm, ierr);
-int ndims; PMPI_Cartdim_get((*comm), &ndims);
+int ndims; PMPI_Cartdim_get( MPI_Comm_f2c((*comm)),  &ndims);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *comm);
   WRITE_TRACE("%p,%i[", (void*) remain_dims, (int) ndims);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ndims; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) remain_dims[trace_elem_idx]);
   }
@@ -1804,7 +1804,7 @@ void FortranCInterface_GLOBAL(mpi_comm_spawn,MPI_COMM_SPAWN) (char* command, cha
  FortranCInterface_GLOBAL(pmpi_comm_spawn,PMPI_COMM_SPAWN)(command, argv, maxprocs, info, root, comm, intercomm, array_of_errcodes, ierr);
     WRITE_TRACE("%lli:", (long long int) *command);
   WRITE_TRACE("%p,%i[", (void*) argv, (int) 0);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<0; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) argv[trace_elem_idx]);
   }
@@ -1816,7 +1816,7 @@ void FortranCInterface_GLOBAL(mpi_comm_spawn,MPI_COMM_SPAWN) (char* command, cha
     WRITE_TRACE("%lli:", (long long int) *comm);
     WRITE_TRACE("%lli:", (long long int) *intercomm);
   WRITE_TRACE("%p,%i[", (void*) array_of_errcodes, (int) (*maxprocs));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*maxprocs); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) array_of_errcodes[trace_elem_idx]);
   }
@@ -1840,28 +1840,28 @@ void FortranCInterface_GLOBAL(mpi_comm_spawn_multiple,MPI_COMM_SPAWN_MULTIPLE) (
  FortranCInterface_GLOBAL(pmpi_comm_spawn_multiple,PMPI_COMM_SPAWN_MULTIPLE)(count, array_of_commands, array_of_argv, array_of_maxprocs, array_of_info, root, comm, intercomm, array_of_errcodes, ierr);
     WRITE_TRACE("%lli:", (long long int) *count);
   WRITE_TRACE("%p,%i[", (void*) array_of_commands, (int) (*count));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*count); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) array_of_commands[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) array_of_argv, (int) (*count));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*count); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) array_of_argv[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) array_of_maxprocs, (int) (*count));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*count); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) array_of_maxprocs[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) array_of_info, (int) (*count));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*count); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) array_of_info[trace_elem_idx]);
   }
@@ -1871,7 +1871,7 @@ void FortranCInterface_GLOBAL(mpi_comm_spawn_multiple,MPI_COMM_SPAWN_MULTIPLE) (
     WRITE_TRACE("%lli:", (long long int) *comm);
     WRITE_TRACE("%lli:", (long long int) *intercomm);
   WRITE_TRACE("%p,%i[", (void*) array_of_errcodes, (int) (*count));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*count); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) array_of_errcodes[trace_elem_idx]);
   }
@@ -1978,7 +1978,7 @@ void FortranCInterface_GLOBAL(mpi_dims_create,MPI_DIMS_CREATE) (int* nnodes, int
     WRITE_TRACE("%lli:", (long long int) *nnodes);
     WRITE_TRACE("%lli:", (long long int) *ndims);
   WRITE_TRACE("%p,%i[", (void*) dims, (int) (*ndims));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*ndims); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) dims[trace_elem_idx]);
   }
@@ -2003,28 +2003,28 @@ void FortranCInterface_GLOBAL(mpi_dist_graph_create,MPI_DIST_GRAPH_CREATE) (int*
     WRITE_TRACE("%lli:", (long long int) *comm_old);
     WRITE_TRACE("%lli:", (long long int) *n);
   WRITE_TRACE("%p,%i[", (void*) nodes, (int) (*n));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*n); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) nodes[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) degrees, (int) (*n));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*n); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) degrees[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) targets, (int) (*n));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*n); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) targets[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) weights, (int) (*n));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*n); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) weights[trace_elem_idx]);
   }
@@ -2052,14 +2052,14 @@ void FortranCInterface_GLOBAL(mpi_dist_graph_create_adjacent,MPI_DIST_GRAPH_CREA
     WRITE_TRACE("%lli:", (long long int) *comm_old);
     WRITE_TRACE("%lli:", (long long int) *indegree);
   WRITE_TRACE("%p,%i[", (void*) sources, (int) (*indegree));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*indegree); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sources[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sourceweights, (int) (*indegree));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*indegree); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sourceweights[trace_elem_idx]);
   }
@@ -2067,14 +2067,14 @@ void FortranCInterface_GLOBAL(mpi_dist_graph_create_adjacent,MPI_DIST_GRAPH_CREA
 }
     WRITE_TRACE("%lli:", (long long int) *outdegree);
   WRITE_TRACE("%p,%i[", (void*) destinations, (int) (*outdegree));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*outdegree); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) destinations[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) destweights, (int) (*outdegree));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*outdegree); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) destweights[trace_elem_idx]);
   }
@@ -2102,14 +2102,14 @@ void FortranCInterface_GLOBAL(mpi_dist_graph_neighbors,MPI_DIST_GRAPH_NEIGHBORS)
     WRITE_TRACE("%lli:", (long long int) *comm);
     WRITE_TRACE("%lli:", (long long int) *maxindegree);
   WRITE_TRACE("%p,%i[", (void*) sources, (int) (*maxindegree));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*maxindegree); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sources[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sourceweights, (int) (*maxindegree));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*maxindegree); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sourceweights[trace_elem_idx]);
   }
@@ -2117,14 +2117,14 @@ void FortranCInterface_GLOBAL(mpi_dist_graph_neighbors,MPI_DIST_GRAPH_NEIGHBORS)
 }
     WRITE_TRACE("%lli:", (long long int) *maxoutdegree);
   WRITE_TRACE("%p,%i[", (void*) destinations, (int) (*maxoutdegree));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*maxoutdegree); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) destinations[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) destweights, (int) (*maxoutdegree));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*maxoutdegree); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) destweights[trace_elem_idx]);
   }
@@ -3505,21 +3505,21 @@ void FortranCInterface_GLOBAL(mpi_gatherv,MPI_GATHERV) (int* sendbuf, int* sendc
   WRITE_TRACE("%s", "MPI_Gatherv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_gatherv,PMPI_GATHERV)(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, root, comm, ierr);
-int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
+int rank, size; PMPI_Comm_size( MPI_Comm_f2c((*comm)),  &size); PMPI_Comm_rank( MPI_Comm_f2c((*comm)),  &rank);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
     WRITE_TRACE("%lli:", (long long int) *sendcount);
     WRITE_TRACE("%lli:", (long long int) *sendtype);
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) displs, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) displs[trace_elem_idx]);
   }
@@ -3728,14 +3728,14 @@ void FortranCInterface_GLOBAL(mpi_graph_create,MPI_GRAPH_CREATE) (int* comm_old,
     WRITE_TRACE("%lli:", (long long int) *comm_old);
     WRITE_TRACE("%lli:", (long long int) *nnodes);
   WRITE_TRACE("%p,%i[", (void*) index, (int) (*nnodes));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*nnodes); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) index[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) edges, (int) index[(*nnodes)-1]);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<index[(*nnodes)-1]; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) edges[trace_elem_idx]);
   }
@@ -3763,14 +3763,14 @@ void FortranCInterface_GLOBAL(mpi_graph_get,MPI_GRAPH_GET) (int* comm, int* maxi
     WRITE_TRACE("%lli:", (long long int) *maxindex);
     WRITE_TRACE("%lli:", (long long int) *maxedges);
   WRITE_TRACE("%p,%i[", (void*) index, (int) (*maxindex));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*maxindex); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) index[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) edges, (int) (*maxedges));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*maxedges); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) edges[trace_elem_idx]);
   }
@@ -3795,14 +3795,14 @@ void FortranCInterface_GLOBAL(mpi_graph_map,MPI_GRAPH_MAP) (int* comm, int* nnod
     WRITE_TRACE("%lli:", (long long int) *comm);
     WRITE_TRACE("%lli:", (long long int) *nnodes);
   WRITE_TRACE("%p,%i[", (void*) index, (int) (*nnodes));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*nnodes); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) index[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) edges, (int) index[(*nnodes)-1]);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<index[(*nnodes)-1]; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) edges[trace_elem_idx]);
   }
@@ -3829,7 +3829,7 @@ void FortranCInterface_GLOBAL(mpi_graph_neighbors,MPI_GRAPH_NEIGHBORS) (int* com
     WRITE_TRACE("%lli:", (long long int) *rank);
     WRITE_TRACE("%lli:", (long long int) *maxneighbors);
   WRITE_TRACE("%p,%i[", (void*) neighbors, (int) (*maxneighbors));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*maxneighbors); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) neighbors[trace_elem_idx]);
   }
@@ -3968,7 +3968,7 @@ void FortranCInterface_GLOBAL(mpi_group_excl,MPI_GROUP_EXCL) (int* group, int* n
     WRITE_TRACE("%lli:", (long long int) *group);
     WRITE_TRACE("%lli:", (long long int) *n);
   WRITE_TRACE("%p,%i[", (void*) ranks, (int) (*n));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*n); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) ranks[trace_elem_idx]);
   }
@@ -4011,7 +4011,7 @@ void FortranCInterface_GLOBAL(mpi_group_incl,MPI_GROUP_INCL) (int* group, int* n
     WRITE_TRACE("%lli:", (long long int) *group);
     WRITE_TRACE("%lli:", (long long int) *n);
   WRITE_TRACE("%p,%i[", (void*) ranks, (int) (*n));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*n); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) ranks[trace_elem_idx]);
   }
@@ -4056,7 +4056,7 @@ void FortranCInterface_GLOBAL(mpi_group_range_excl,MPI_GROUP_RANGE_EXCL) (int* g
     WRITE_TRACE("%lli:", (long long int) *group);
     WRITE_TRACE("%lli:", (long long int) *n);
   WRITE_TRACE("%p,%i[", (void*) ranges, (int) (*n));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*n); trace_elem_idx++) {
       WRITE_TRACE("[%i,%i,%i];", *(&(ranges[trace_elem_idx])+0), *(&(ranges[trace_elem_idx])+1), *(&(ranges[trace_elem_idx])+2));
   }
@@ -4082,7 +4082,7 @@ void FortranCInterface_GLOBAL(mpi_group_range_incl,MPI_GROUP_RANGE_INCL) (int* g
     WRITE_TRACE("%lli:", (long long int) *group);
     WRITE_TRACE("%lli:", (long long int) *n);
   WRITE_TRACE("%p,%i[", (void*) ranges, (int) (*n));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*n); trace_elem_idx++) {
       WRITE_TRACE("[%i,%i,%i];", *(&(ranges[trace_elem_idx])+0), *(&(ranges[trace_elem_idx])+1), *(&(ranges[trace_elem_idx])+2));
   }
@@ -4144,7 +4144,7 @@ void FortranCInterface_GLOBAL(mpi_group_translate_ranks,MPI_GROUP_TRANSLATE_RANK
     WRITE_TRACE("%lli:", (long long int) *group1);
     WRITE_TRACE("%lli:", (long long int) *n);
   WRITE_TRACE("%p,%i[", (void*) ranks1, (int) (*n));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*n); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) ranks1[trace_elem_idx]);
   }
@@ -4152,7 +4152,7 @@ void FortranCInterface_GLOBAL(mpi_group_translate_ranks,MPI_GROUP_TRANSLATE_RANK
 }
     WRITE_TRACE("%lli:", (long long int) *group2);
   WRITE_TRACE("%p,%i[", (void*) ranks2, (int) (*n));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*n); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) ranks2[trace_elem_idx]);
   }
@@ -4217,21 +4217,21 @@ void FortranCInterface_GLOBAL(mpi_iallgatherv,MPI_IALLGATHERV) (int* sendbuf, in
   WRITE_TRACE("%s", "MPI_Iallgatherv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_iallgatherv,PMPI_IALLGATHERV)(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, comm, request, ierr);
-int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
+int rank, size; PMPI_Comm_size( MPI_Comm_f2c((*comm)),  &size); PMPI_Comm_rank( MPI_Comm_f2c((*comm)),  &rank);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
     WRITE_TRACE("%lli:", (long long int) *sendcount);
     WRITE_TRACE("%lli:", (long long int) *sendtype);
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) displs, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) displs[trace_elem_idx]);
   }
@@ -4303,18 +4303,18 @@ void FortranCInterface_GLOBAL(mpi_ialltoallv,MPI_IALLTOALLV) (int* sendbuf, int*
   WRITE_TRACE("%s", "MPI_Ialltoallv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_ialltoallv,PMPI_IALLTOALLV)(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm, request, ierr);
-int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
+int rank, size; PMPI_Comm_size( MPI_Comm_f2c((*comm)),  &size); PMPI_Comm_rank( MPI_Comm_f2c((*comm)),  &rank);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sdispls, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sdispls[trace_elem_idx]);
   }
@@ -4323,14 +4323,14 @@ int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
     WRITE_TRACE("%lli:", (long long int) *sendtype);
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) rdispls, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) rdispls[trace_elem_idx]);
   }
@@ -4355,25 +4355,25 @@ void FortranCInterface_GLOBAL(mpi_ialltoallw,MPI_IALLTOALLW) (int* sendbuf, int*
   WRITE_TRACE("%s", "MPI_Ialltoallw:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_ialltoallw,PMPI_IALLTOALLW)(sendbuf, sendcounts, sdispls, sendtypes, recvbuf, recvcounts, rdispls, recvtypes, comm, request, ierr);
-int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
+int rank, size; PMPI_Comm_size( MPI_Comm_f2c((*comm)),  &size); PMPI_Comm_rank( MPI_Comm_f2c((*comm)),  &rank);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sdispls, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sdispls[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sendtypes, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendtypes[trace_elem_idx]);
   }
@@ -4381,21 +4381,21 @@ int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
 }
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) rdispls, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) rdispls[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) recvtypes, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvtypes[trace_elem_idx]);
   }
@@ -4530,21 +4530,21 @@ void FortranCInterface_GLOBAL(mpi_igatherv,MPI_IGATHERV) (int* sendbuf, int* sen
   WRITE_TRACE("%s", "MPI_Igatherv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_igatherv,PMPI_IGATHERV)(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, root, comm, request, ierr);
-int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
+int rank, size; PMPI_Comm_size( MPI_Comm_f2c((*comm)),  &size); PMPI_Comm_rank( MPI_Comm_f2c((*comm)),  &rank);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
     WRITE_TRACE("%lli:", (long long int) *sendcount);
     WRITE_TRACE("%lli:", (long long int) *sendtype);
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) displs, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) displs[trace_elem_idx]);
   }
@@ -4637,21 +4637,21 @@ void FortranCInterface_GLOBAL(mpi_ineighbor_allgatherv,MPI_INEIGHBOR_ALLGATHERV)
   WRITE_TRACE("%s", "MPI_Ineighbor_allgatherv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_ineighbor_allgatherv,PMPI_INEIGHBOR_ALLGATHERV)(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, comm, request, ierr);
-int ideg, odeg, wted; MPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
+int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
     WRITE_TRACE("%lli:", (long long int) *sendcount);
     WRITE_TRACE("%lli:", (long long int) *sendtype);
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) displs, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) displs[trace_elem_idx]);
   }
@@ -4700,18 +4700,18 @@ void FortranCInterface_GLOBAL(mpi_ineighbor_alltoallv,MPI_INEIGHBOR_ALLTOALLV) (
   WRITE_TRACE("%s", "MPI_Ineighbor_alltoallv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_ineighbor_alltoallv,PMPI_INEIGHBOR_ALLTOALLV)(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm, request, ierr);
-int ideg, odeg, wted; MPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
+int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) odeg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<odeg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sdispls, (int) odeg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<odeg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sdispls[trace_elem_idx]);
   }
@@ -4720,14 +4720,14 @@ int ideg, odeg, wted; MPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wte
     WRITE_TRACE("%lli:", (long long int) *sendtype);
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) rdispls, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) rdispls[trace_elem_idx]);
   }
@@ -4752,25 +4752,25 @@ void FortranCInterface_GLOBAL(mpi_ineighbor_alltoallw,MPI_INEIGHBOR_ALLTOALLW) (
   WRITE_TRACE("%s", "MPI_Ineighbor_alltoallw:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_ineighbor_alltoallw,PMPI_INEIGHBOR_ALLTOALLW)(sendbuf, sendcounts, sdispls, sendtypes, recvbuf, recvcounts, rdispls, recvtypes, comm, request, ierr);
-int ideg, odeg, wted; MPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
+int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) odeg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<odeg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sdispls, (int) odeg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<odeg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sdispls[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sendtypes, (int) odeg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<odeg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendtypes[trace_elem_idx]);
   }
@@ -4778,21 +4778,21 @@ int ideg, odeg, wted; MPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wte
 }
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) rdispls, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) rdispls[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) recvtypes, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvtypes[trace_elem_idx]);
   }
@@ -5141,12 +5141,12 @@ void FortranCInterface_GLOBAL(mpi_ireduce_scatter,MPI_IREDUCE_SCATTER) (int* sen
   WRITE_TRACE("%s", "MPI_Ireduce_scatter:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_ireduce_scatter,PMPI_IREDUCE_SCATTER)(sendbuf, recvbuf, recvcounts, datatype, op, comm, request, ierr);
-int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
+int rank, size; PMPI_Comm_size( MPI_Comm_f2c((*comm)),  &size); PMPI_Comm_rank( MPI_Comm_f2c((*comm)),  &rank);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
@@ -5283,18 +5283,18 @@ void FortranCInterface_GLOBAL(mpi_iscatterv,MPI_ISCATTERV) (int* sendbuf, int* s
   WRITE_TRACE("%s", "MPI_Iscatterv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_iscatterv,PMPI_ISCATTERV)(sendbuf, sendcounts, displs, sendtype, recvbuf, recvcount, recvtype, root, comm, request, ierr);
-int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
+int rank, size; PMPI_Comm_size( MPI_Comm_f2c((*comm)),  &size); PMPI_Comm_rank( MPI_Comm_f2c((*comm)),  &rank);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) (rank == (*root) ? size : 0));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(rank == (*root) ? size : 0); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) displs, (int) (rank == (*root) ? size : 0));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(rank == (*root) ? size : 0); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) displs[trace_elem_idx]);
   }
@@ -5490,21 +5490,21 @@ void FortranCInterface_GLOBAL(mpi_neighbor_allgatherv,MPI_NEIGHBOR_ALLGATHERV) (
   WRITE_TRACE("%s", "MPI_Neighbor_allgatherv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_neighbor_allgatherv,PMPI_NEIGHBOR_ALLGATHERV)(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, comm, ierr);
-int ideg, odeg, wted; MPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
+int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
     WRITE_TRACE("%lli:", (long long int) *sendcount);
     WRITE_TRACE("%lli:", (long long int) *sendtype);
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) displs, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) displs[trace_elem_idx]);
   }
@@ -5551,18 +5551,18 @@ void FortranCInterface_GLOBAL(mpi_neighbor_alltoallv,MPI_NEIGHBOR_ALLTOALLV) (in
   WRITE_TRACE("%s", "MPI_Neighbor_alltoallv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_neighbor_alltoallv,PMPI_NEIGHBOR_ALLTOALLV)(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm, ierr);
-int ideg, odeg, wted; MPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
+int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) odeg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<odeg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sdispls, (int) odeg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<odeg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sdispls[trace_elem_idx]);
   }
@@ -5571,14 +5571,14 @@ int ideg, odeg, wted; MPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wte
     WRITE_TRACE("%lli:", (long long int) *sendtype);
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) rdispls, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) rdispls[trace_elem_idx]);
   }
@@ -5602,25 +5602,25 @@ void FortranCInterface_GLOBAL(mpi_neighbor_alltoallw,MPI_NEIGHBOR_ALLTOALLW) (in
   WRITE_TRACE("%s", "MPI_Neighbor_alltoallw:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_neighbor_alltoallw,PMPI_NEIGHBOR_ALLTOALLW)(sendbuf, sendcounts, sdispls, sendtypes, recvbuf, recvcounts, rdispls, recvtypes, comm, ierr);
-int ideg, odeg, wted; MPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
+int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wted);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) odeg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<odeg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sdispls, (int) odeg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<odeg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sdispls[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) sendtypes, (int) odeg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<odeg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendtypes[trace_elem_idx]);
   }
@@ -5628,21 +5628,21 @@ int ideg, odeg, wted; MPI_Dist_graph_neighbors_count((*comm), &ideg, &odeg, &wte
 }
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) rdispls, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) rdispls[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) recvtypes, (int) ideg);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<ideg; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvtypes[trace_elem_idx]);
   }
@@ -5761,7 +5761,7 @@ void FortranCInterface_GLOBAL(mpi_pack_external,MPI_PACK_EXTERNAL) (char* datare
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_pack_external,PMPI_PACK_EXTERNAL)(datarep, inbuf, incount, datatype, outbuf, outsize, position, ierr);
   WRITE_TRACE("%p,%i[", (void*) datarep, (int) strlen(datarep));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<strlen(datarep); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) datarep[trace_elem_idx]);
   }
@@ -5790,7 +5790,7 @@ void FortranCInterface_GLOBAL(mpi_pack_external_size,MPI_PACK_EXTERNAL_SIZE) (ch
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_pack_external_size,PMPI_PACK_EXTERNAL_SIZE)(datarep, incount, datatype, size, ierr);
   WRITE_TRACE("%p,%i[", (void*) datarep, (int) strlen(datarep));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<strlen(datarep); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) datarep[trace_elem_idx]);
   }
@@ -6038,12 +6038,12 @@ void FortranCInterface_GLOBAL(mpi_reduce_scatter,MPI_REDUCE_SCATTER) (int* sendb
   WRITE_TRACE("%s", "MPI_Reduce_scatter:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_reduce_scatter,PMPI_REDUCE_SCATTER)(sendbuf, recvbuf, recvcounts, datatype, op, comm, ierr);
-int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
+int rank, size; PMPI_Comm_size( MPI_Comm_f2c((*comm)),  &size); PMPI_Comm_rank( MPI_Comm_f2c((*comm)),  &rank);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
     WRITE_TRACE("%lli:", (long long int) *recvbuf);
   WRITE_TRACE("%p,%i[", (void*) recvcounts, (int) size);
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<size; trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) recvcounts[trace_elem_idx]);
   }
@@ -6317,18 +6317,18 @@ void FortranCInterface_GLOBAL(mpi_scatterv,MPI_SCATTERV) (int* sendbuf, int* sen
   WRITE_TRACE("%s", "MPI_Scatterv:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
  FortranCInterface_GLOBAL(pmpi_scatterv,PMPI_SCATTERV)(sendbuf, sendcounts, displs, sendtype, recvbuf, recvcount, recvtype, root, comm, ierr);
-int rank, size; PMPI_Comm_size((*comm), &size); PMPI_Comm_rank((*comm), &rank);
+int rank, size; PMPI_Comm_size( MPI_Comm_f2c((*comm)),  &size); PMPI_Comm_rank( MPI_Comm_f2c((*comm)),  &rank);
 //end of prologs
     WRITE_TRACE("%lli:", (long long int) *sendbuf);
   WRITE_TRACE("%p,%i[", (void*) sendcounts, (int) (rank==(*root) ? size : 0));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(rank==(*root) ? size : 0); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) sendcounts[trace_elem_idx]);
   }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%p,%i[", (void*) displs, (int) (rank==(*root) ? size : 0));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(rank==(*root) ? size : 0); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) displs[trace_elem_idx]);
   }
@@ -6518,7 +6518,7 @@ void FortranCInterface_GLOBAL(mpi_startall,MPI_STARTALL) (int* count, int* array
  FortranCInterface_GLOBAL(pmpi_startall,PMPI_STARTALL)(count, array_of_requests, ierr);
     WRITE_TRACE("%lli:", (long long int) *count);
   WRITE_TRACE("%p,%i[", (void*) array_of_requests, (int) (*count));
-  if (0) {  } else { 
+  if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(*count); trace_elem_idx++) {
       WRITE_TRACE("%lli;", (long long int) array_of_requests[trace_elem_idx]);
   }

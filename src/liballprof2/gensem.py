@@ -41,7 +41,7 @@ class AllprofCodegen:
         mapping = {}
         GET_NDIMS_CART_COMM = "int ndims; PMPI_Cartdim_get(comm, &ndims);"
         GET_COMM_SIZE = "int rank, size; PMPI_Comm_size(comm, &size); PMPI_Comm_rank(comm, &rank);"
-        GET_NEIGH_GRAPH_COMM = "int ideg, odeg, wted; MPI_Dist_graph_neighbors_count(comm, &ideg, &odeg, &wted);"
+        GET_NEIGH_GRAPH_COMM = "int ideg, odeg, wted; PMPI_Dist_graph_neighbors_count(comm, &ideg, &odeg, &wted);"
         mapping[("MPI_Cart_create", "dims")] = "ndims"
         mapping[("MPI_Cart_create", "periods")] = "ndims"
         mapping[("MPI_Cart_map", "dims")] = "ndims"

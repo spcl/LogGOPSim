@@ -76,6 +76,13 @@ class AllprofCodegen:
         return expr
 
 
+    def fortranize_prolog(self, expr, funcname):
+        expr = self.deref_args(expr, funcname)
+        expr = re.sub(r"PMPI_Cartdim_get\((.+?),(.+?)\)", r"PMPI_Cartdim_get( MPI_Comm_f2c(\1), \2)", expr)
+        expr = re.sub(r"PMPI_Comm_size\((.+?),(.+?)\)", r"PMPI_Comm_size( MPI_Comm_f2c(\1), \2)", expr)
+        expr = re.sub(r"PMPI_Comm_rank\((.+?),(.+?)\)", r"PMPI_Comm_rank( MPI_Comm_f2c(\1), \2)", expr)
+        return expr
+
     def write_prolog(self, mode='c'):
         if mode == 'fortran':
             self.outfile.write("#include \"fc_mangle.h\"\n")
@@ -230,7 +237,8 @@ class AllprofCodegen:
                 if mode == 'c':
                     prologs.append(sem_param['prolog_elem_count'])
                 if mode == 'fortran':
-                    prolog = self.deref_args(sem_param['prolog_elem_count'], func)
+                    prolog = sem_param['prolog_elem_count']
+                    prolog = self.fortranize_prolog(prolog, func)
                     prologs.append(prolog)
         prologs = list(set(prologs))
         if len(prologs) > 0:
@@ -247,7 +255,7 @@ class AllprofCodegen:
                     if (mode == 'fortran'):
                         elem_count_expr = self.deref_args(elem_count_expr, func)
                 self.outfile.write(f"  WRITE_TRACE(\"%p,%i[\", (void*) {sem_param['name']}, (int) {elem_count_expr});\n")
-                self.outfile.write(f"  if (0) {{  }} else {{ \n")
+                self.outfile.write(f"  if (lap_elem_tracing_enabled == 0) {{  }} else {{ \n")
                 self.outfile.write(f"    for (int trace_elem_idx=0; trace_elem_idx<{elem_count_expr}; trace_elem_idx++) "+"{\n")
                 
                 # emit the tracer for the simplified arg, use ; to seperate elems
