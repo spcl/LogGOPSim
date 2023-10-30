@@ -5920,7 +5920,7 @@ int MPI_Pcontrol (const int level,  ...) {
   if (level == 0) { lap_tracing_enabled = 0; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }
   if (level == 1) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }
   if (level == 2) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 0; }
-  if (level >= 3) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 1; }
+  if (level == 3) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 1; }
   WRITE_TRACE("# pcontrol with value / epoch %i)\n", level);
   return MPI_SUCCESS;
 }

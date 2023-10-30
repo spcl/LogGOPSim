@@ -5830,7 +5830,7 @@ void FortranCInterface_GLOBAL(mpi_pcontrol,MPI_PCONTROL) (int* level, int* ierr)
   if (*level == 0) { lap_tracing_enabled = 0; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }
   if (*level == 1) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 0; lap_backtrace_enabled = 0; }
   if (*level == 2) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 0; }
-  if (*level >= 3) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 1; }
+  if (*level == 3) { lap_tracing_enabled = 1; lap_elem_tracing_enabled = 1; lap_backtrace_enabled = 1; }
   WRITE_TRACE("# pcontrol with value / epoch %i)\n", *level);
 }
 
