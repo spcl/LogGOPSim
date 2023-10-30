@@ -2,3 +2,8 @@ build
 __pycache__
 *_cmdline.c
 *_cmdline.h
+src/LogGOPSim/txt2bin.cpp
+!build/fc_mangle.h
+!build/mpi_sem.yml
+!build/mpi_c_wrapper.c
+!build/mpi_f_wrapper.c
