@@ -72,8 +72,15 @@ static void lap_collect_traces(void) {
     int trace_size = ftell(lap_fptr);
     fseek(lap_fptr, 0, SEEK_SET);
     int* trace_sizes = malloc(comm_size);
+    if (trace_sizes == NULL) {
+      fprintf(stderr, "lap2 ran out of memory when collecting traces :(\n");
+      return;
+    }
     void* chunkbuf = malloc(LAP2_TRANSFER_BUFFER_SIZE);
-    assert(trace_sizes);
+    if (chunkbuf == NULL) {
+      fprintf(stderr, "lap2 ran out of memory when collecting traces, decrease LAP2_TRANSFER_BUFFER_SIZE=%i :(\n", LAP2_TRANSFER_BUFFER_SIZE);
+      return;
+    }
     PMPI_Gather(&trace_size, 1, MPI_INT, trace_sizes, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (comm_rank == 0) {
         for (int r=0; r<comm_size; r++) {

@@ -72,8 +72,15 @@ static void lap_collect_traces(void) {
     int trace_size = ftell(lap_fptr);
     fseek(lap_fptr, 0, SEEK_SET);
     int* trace_sizes = malloc(comm_size);
+    if (trace_sizes == NULL) {
+      fprintf(stderr, "lap2 ran out of memory when collecting traces :(\n");
+      return;
+    }
     void* chunkbuf = malloc(LAP2_TRANSFER_BUFFER_SIZE);
-    assert(trace_sizes);
+    if (chunkbuf == NULL) {
+      fprintf(stderr, "lap2 ran out of memory when collecting traces, decrease LAP2_TRANSFER_BUFFER_SIZE=%i :(\n", LAP2_TRANSFER_BUFFER_SIZE);
+      return;
+    }
     PMPI_Gather(&trace_size, 1, MPI_INT, trace_sizes, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (comm_rank == 0) {
         for (int r=0; r<comm_size; r++) {
@@ -2648,7 +2655,8 @@ int MPI_File_read (MPI_File fh, void * buf, int count, MPI_Datatype datatype, MP
   WRITE_TRACE("%p:", buf);
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -2670,7 +2678,8 @@ int MPI_File_read_all (MPI_File fh, void * buf, int count, MPI_Datatype datatype
   WRITE_TRACE("%p:", buf);
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -2712,7 +2721,8 @@ int MPI_File_read_all_end (MPI_File fh, void * buf, MPI_Status * status) {
   pmpi_retval = PMPI_File_read_all_end(fh, buf, status);
     WRITE_TRACE("%lli:", (long long int) PMPI_File_c2f(fh));
   WRITE_TRACE("%p:", buf);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -2735,7 +2745,8 @@ int MPI_File_read_at (MPI_File fh, MPI_Offset offset, void * buf, int count, MPI
   WRITE_TRACE("%p:", buf);
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -2758,7 +2769,8 @@ int MPI_File_read_at_all (MPI_File fh, MPI_Offset offset, void * buf, int count,
   WRITE_TRACE("%p:", buf);
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -2801,7 +2813,8 @@ int MPI_File_read_at_all_end (MPI_File fh, void * buf, MPI_Status * status) {
   pmpi_retval = PMPI_File_read_at_all_end(fh, buf, status);
     WRITE_TRACE("%lli:", (long long int) PMPI_File_c2f(fh));
   WRITE_TRACE("%p:", buf);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -2823,7 +2836,8 @@ int MPI_File_read_ordered (MPI_File fh, void * buf, int count, MPI_Datatype data
   WRITE_TRACE("%p:", buf);
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -2865,7 +2879,8 @@ int MPI_File_read_ordered_end (MPI_File fh, void * buf, MPI_Status * status) {
   pmpi_retval = PMPI_File_read_ordered_end(fh, buf, status);
     WRITE_TRACE("%lli:", (long long int) PMPI_File_c2f(fh));
   WRITE_TRACE("%p:", buf);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -2887,7 +2902,8 @@ int MPI_File_read_shared (MPI_File fh, void * buf, int count, MPI_Datatype datat
   WRITE_TRACE("%p:", buf);
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -3074,7 +3090,8 @@ int MPI_File_write (MPI_File fh, const void * buf, int count, MPI_Datatype datat
   WRITE_TRACE("%p:", buf);
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -3096,7 +3113,8 @@ int MPI_File_write_all (MPI_File fh, const void * buf, int count, MPI_Datatype d
   WRITE_TRACE("%p:", buf);
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -3138,7 +3156,8 @@ int MPI_File_write_all_end (MPI_File fh, const void * buf, MPI_Status * status) 
   pmpi_retval = PMPI_File_write_all_end(fh, buf, status);
     WRITE_TRACE("%lli:", (long long int) PMPI_File_c2f(fh));
   WRITE_TRACE("%p:", buf);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -3161,7 +3180,8 @@ int MPI_File_write_at (MPI_File fh, MPI_Offset offset, const void * buf, int cou
   WRITE_TRACE("%p:", buf);
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -3184,7 +3204,8 @@ int MPI_File_write_at_all (MPI_File fh, MPI_Offset offset, const void * buf, int
   WRITE_TRACE("%p:", buf);
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -3227,7 +3248,8 @@ int MPI_File_write_at_all_end (MPI_File fh, const void * buf, MPI_Status * statu
   pmpi_retval = PMPI_File_write_at_all_end(fh, buf, status);
     WRITE_TRACE("%lli:", (long long int) PMPI_File_c2f(fh));
   WRITE_TRACE("%p:", buf);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -3249,7 +3271,8 @@ int MPI_File_write_ordered (MPI_File fh, const void * buf, int count, MPI_Dataty
   WRITE_TRACE("%p:", buf);
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -3291,7 +3314,8 @@ int MPI_File_write_ordered_end (MPI_File fh, const void * buf, MPI_Status * stat
   pmpi_retval = PMPI_File_write_ordered_end(fh, buf, status);
     WRITE_TRACE("%lli:", (long long int) PMPI_File_c2f(fh));
   WRITE_TRACE("%p:", buf);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -3313,7 +3337,8 @@ int MPI_File_write_shared (MPI_File fh, const void * buf, int count, MPI_Datatyp
   WRITE_TRACE("%p:", buf);
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -3528,7 +3553,8 @@ int MPI_Get_count (const MPI_Status * status, MPI_Datatype datatype, int * count
   WRITE_TRACE("%s", "MPI_Get_count:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
   pmpi_retval = PMPI_Get_count(status, datatype, count);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}    WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+    WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
     WRITE_TRACE("%lli:", (long long int) *(count));
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
@@ -3548,7 +3574,8 @@ int MPI_Get_elements (const MPI_Status * status, MPI_Datatype datatype, int * co
   WRITE_TRACE("%s", "MPI_Get_elements:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
   pmpi_retval = PMPI_Get_elements(status, datatype, count);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}    WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+    WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
     WRITE_TRACE("%lli:", (long long int) *(count));
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
@@ -3568,7 +3595,8 @@ int MPI_Get_elements_x (const MPI_Status * status, MPI_Datatype datatype, MPI_Co
   WRITE_TRACE("%s", "MPI_Get_elements_x:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
   pmpi_retval = PMPI_Get_elements_x(status, datatype, count);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}    WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+    WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
     WRITE_TRACE("%lli:", (long long int) *(count));
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
@@ -4562,7 +4590,8 @@ int MPI_Improbe (int source, int tag, MPI_Comm comm, int * flag, MPI_Message * m
     WRITE_TRACE("%lli:", (long long int) PMPI_Comm_c2f(comm));
     WRITE_TRACE("%lli:", (long long int) *(flag));
     WRITE_TRACE("%lli:", (long long int) PMPI_Message_c2f(*message));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -5111,7 +5140,8 @@ int MPI_Iprobe (int source, int tag, MPI_Comm comm, int * flag, MPI_Status * sta
     WRITE_TRACE("%lli:", (long long int) (tag));
     WRITE_TRACE("%lli:", (long long int) PMPI_Comm_c2f(comm));
     WRITE_TRACE("%lli:", (long long int) *(flag));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -5492,7 +5522,8 @@ int MPI_Mprobe (int source, int tag, MPI_Comm comm, MPI_Message * message, MPI_S
     WRITE_TRACE("%lli:", (long long int) (tag));
     WRITE_TRACE("%lli:", (long long int) PMPI_Comm_c2f(comm));
     WRITE_TRACE("%lli:", (long long int) PMPI_Message_c2f(*message));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -5514,7 +5545,8 @@ int MPI_Mrecv (void * buf, int count, MPI_Datatype type, MPI_Message * message, 
     WRITE_TRACE("%lli:", (long long int) (count));
     WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(type));
     WRITE_TRACE("%lli:", (long long int) PMPI_Message_c2f(*message));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -5938,7 +5970,8 @@ int MPI_Probe (int source, int tag, MPI_Comm comm, MPI_Status * status) {
     WRITE_TRACE("%lli:", (long long int) (source));
     WRITE_TRACE("%lli:", (long long int) (tag));
     WRITE_TRACE("%lli:", (long long int) PMPI_Comm_c2f(comm));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -6056,7 +6089,8 @@ int MPI_Recv (void * buf, int count, MPI_Datatype datatype, int source, int tag,
     WRITE_TRACE("%lli:", (long long int) (source));
     WRITE_TRACE("%lli:", (long long int) (tag));
     WRITE_TRACE("%lli:", (long long int) PMPI_Comm_c2f(comm));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -6247,7 +6281,8 @@ int MPI_Request_get_status (MPI_Request request, int * flag, MPI_Status * status
   pmpi_retval = PMPI_Request_get_status(request, flag, status);
     WRITE_TRACE("%lli:", (long long int) PMPI_Request_c2f(request));
     WRITE_TRACE("%lli:", (long long int) *(flag));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -6550,7 +6585,8 @@ int MPI_Sendrecv (const void * sendbuf, int sendcount, MPI_Datatype sendtype, in
     WRITE_TRACE("%lli:", (long long int) (source));
     WRITE_TRACE("%lli:", (long long int) (recvtag));
     WRITE_TRACE("%lli:", (long long int) PMPI_Comm_c2f(comm));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -6576,7 +6612,8 @@ int MPI_Sendrecv_replace (void * buf, int count, MPI_Datatype datatype, int dest
     WRITE_TRACE("%lli:", (long long int) (source));
     WRITE_TRACE("%lli:", (long long int) (recvtag));
     WRITE_TRACE("%lli:", (long long int) PMPI_Comm_c2f(comm));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -6688,7 +6725,8 @@ int MPI_Status_c2f (const MPI_Status * c_status, int * f_status) {
   WRITE_TRACE("%s", "MPI_Status_c2f:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
   pmpi_retval = PMPI_Status_c2f(c_status, f_status);
-  if (c_status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(c_status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}    WRITE_TRACE("%lli:", (long long int) *(f_status));
+  if ((c_status == MPI_STATUSES_IGNORE) || (c_status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) c_status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", c_status, (c_status)->MPI_SOURCE, (c_status)->MPI_TAG, (c_status)->MPI_ERROR);}
+    WRITE_TRACE("%lli:", (long long int) *(f_status));
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
@@ -6708,7 +6746,8 @@ int MPI_Status_f2c (const int * f_status, MPI_Status * c_status) {
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
   pmpi_retval = PMPI_Status_f2c(f_status, c_status);
     WRITE_TRACE("%lli:", (long long int) *(f_status));
-  if (c_status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(c_status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((c_status == MPI_STATUSES_IGNORE) || (c_status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) c_status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", c_status, (c_status)->MPI_SOURCE, (c_status)->MPI_TAG, (c_status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -6726,7 +6765,8 @@ int MPI_Status_set_cancelled (MPI_Status * status, int flag) {
   WRITE_TRACE("%s", "MPI_Status_set_cancelled:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
   pmpi_retval = PMPI_Status_set_cancelled(status, flag);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}    WRITE_TRACE("%lli:", (long long int) (flag));
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+    WRITE_TRACE("%lli:", (long long int) (flag));
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
@@ -6745,7 +6785,8 @@ int MPI_Status_set_elements (MPI_Status * status, MPI_Datatype datatype, int cou
   WRITE_TRACE("%s", "MPI_Status_set_elements:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
   pmpi_retval = PMPI_Status_set_elements(status, datatype, count);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}    WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+    WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
     WRITE_TRACE("%lli:", (long long int) (count));
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
@@ -6765,7 +6806,8 @@ int MPI_Status_set_elements_x (MPI_Status * status, MPI_Datatype datatype, MPI_C
   WRITE_TRACE("%s", "MPI_Status_set_elements_x:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
   pmpi_retval = PMPI_Status_set_elements_x(status, datatype, count);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}    WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+    WRITE_TRACE("%lli:", (long long int) PMPI_Type_c2f(datatype));
     WRITE_TRACE("%lli:", (long long int) (count));
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
@@ -6787,7 +6829,8 @@ int MPI_Test (MPI_Request * request, int * flag, MPI_Status * status) {
   pmpi_retval = PMPI_Test(request, flag, status);
     WRITE_TRACE("%lli:", (long long int) PMPI_Request_c2f(*request));
     WRITE_TRACE("%lli:", (long long int) *(flag));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -6805,7 +6848,8 @@ int MPI_Test_cancelled (const MPI_Status * status, int * flag) {
   WRITE_TRACE("%s", "MPI_Test_cancelled:");
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
   pmpi_retval = PMPI_Test_cancelled(status, flag);
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}    WRITE_TRACE("%lli:", (long long int) *(flag));
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+    WRITE_TRACE("%lli:", (long long int) *(flag));
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
@@ -6836,7 +6880,8 @@ int MPI_Testall (int count, MPI_Request array_of_requests[], int * flag, MPI_Sta
   WRITE_TRACE("%p,%i[", (void*) array_of_statuses, (int) count);
   if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<count; trace_elem_idx++) {
-    {MPI_Fint fstatus; PMPI_Status_c2f(&array_of_statuses[trace_elem_idx], &fstatus); WRITE_TRACE("%lli;", (long long int) fstatus);}  }
+    WRITE_TRACE("%p:[%i,%i,%i];", array_of_statuses[trace_elem_idx], (&array_of_statuses[trace_elem_idx])->MPI_SOURCE, (&array_of_statuses[trace_elem_idx])->MPI_TAG, (&array_of_statuses[trace_elem_idx])->MPI_ERROR);
+  }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
@@ -6867,7 +6912,8 @@ int MPI_Testany (int count, MPI_Request array_of_requests[], int * index, int * 
 }
     WRITE_TRACE("%lli:", (long long int) *(index));
     WRITE_TRACE("%lli:", (long long int) *(flag));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -6904,7 +6950,8 @@ int MPI_Testsome (int incount, MPI_Request array_of_requests[], int * outcount, 
   WRITE_TRACE("%p,%i[", (void*) array_of_statuses, (int) *outcount);
   if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<*outcount; trace_elem_idx++) {
-    {MPI_Fint fstatus; PMPI_Status_c2f(&array_of_statuses[trace_elem_idx], &fstatus); WRITE_TRACE("%lli;", (long long int) fstatus);}  }
+    WRITE_TRACE("%p:[%i,%i,%i];", array_of_statuses[trace_elem_idx], (&array_of_statuses[trace_elem_idx])->MPI_SOURCE, (&array_of_statuses[trace_elem_idx])->MPI_TAG, (&array_of_statuses[trace_elem_idx])->MPI_ERROR);
+  }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
@@ -7852,7 +7899,8 @@ int MPI_Wait (MPI_Request * request, MPI_Status * status) {
   WRITE_TRACE("%0.2f:", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);
   pmpi_retval = PMPI_Wait(request, status);
     WRITE_TRACE("%lli:", (long long int) PMPI_Request_c2f(*request));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -7878,7 +7926,8 @@ int MPI_Waitall (int count, MPI_Request array_of_requests[], MPI_Status * array_
   }
   WRITE_TRACE("]%s", ":");
 }
-  if (array_of_statuses == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(array_of_statuses, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((array_of_statuses == MPI_STATUSES_IGNORE) || (array_of_statuses == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) array_of_statuses);} else {WRITE_TRACE("%p:[%i,%i,%i]:", array_of_statuses, (array_of_statuses)->MPI_SOURCE, (array_of_statuses)->MPI_TAG, (array_of_statuses)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -7905,7 +7954,8 @@ int MPI_Waitany (int count, MPI_Request array_of_requests[], int * index, MPI_St
   WRITE_TRACE("]%s", ":");
 }
     WRITE_TRACE("%lli:", (long long int) *(index));
-  if (status == MPI_STATUSES_IGNORE) {WRITE_TRACE("%lli", (long long int) MPI_STATUSES_IGNORE);} else {MPI_Fint fstatus; PMPI_Status_c2f(status, &fstatus); WRITE_TRACE("%lli:", (long long int) fstatus);}  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
+  if ((status == MPI_STATUSES_IGNORE) || (status == MPI_STATUSES_IGNORE)) {WRITE_TRACE("%lli", (long long int) status);} else {WRITE_TRACE("%p:[%i,%i,%i]:", status, (status)->MPI_SOURCE, (status)->MPI_TAG, (status)->MPI_ERROR);}
+  WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {
     lap_get_full_backtrace(lap_backtrace_buf, LAP2_BACKTRACE_BUF_SIZE);
     WRITE_TRACE("  # backtrace [%s]", lap_backtrace_buf);
   }
@@ -7942,7 +7992,8 @@ int MPI_Waitsome (int incount, MPI_Request array_of_requests[], int * outcount, 
   WRITE_TRACE("%p,%i[", (void*) array_of_statuses, (int) (array_of_statuses != MPI_STATUSES_IGNORE ? *outcount : 0));
   if (lap_elem_tracing_enabled == 0) {  } else { 
     for (int trace_elem_idx=0; trace_elem_idx<(array_of_statuses != MPI_STATUSES_IGNORE ? *outcount : 0); trace_elem_idx++) {
-    {MPI_Fint fstatus; PMPI_Status_c2f(&array_of_statuses[trace_elem_idx], &fstatus); WRITE_TRACE("%lli;", (long long int) fstatus);}  }
+    WRITE_TRACE("%p:[%i,%i,%i];", array_of_statuses[trace_elem_idx], (&array_of_statuses[trace_elem_idx])->MPI_SOURCE, (&array_of_statuses[trace_elem_idx])->MPI_TAG, (&array_of_statuses[trace_elem_idx])->MPI_ERROR);
+  }
   WRITE_TRACE("]%s", ":");
 }
   WRITE_TRACE("%0.2f", lap_mpi_initialized ? PMPI_Wtime()*1e6 : 0.0);  if (lap_backtrace_enabled) {

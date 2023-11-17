@@ -180,13 +180,14 @@ class AllprofCodegen:
             ref = ""
         if basetype == "MPI_Datatype": #the mpi forum really values consistency - except when they don't :)
             basetype = "MPI_Type"
-        if basetype == "MPI_Status": # at least here it makes sense :)
-            if is_ptr: # apparently c2f has a prolem with MPI_STATUSES_IGNORE :( 
-                return f"if ({name} == MPI_STATUSES_IGNORE) {{WRITE_TRACE(\"%lli\", (long long int) MPI_STATUSES_IGNORE);}} else {{MPI_Fint fstatus; PMPI_Status_c2f({ref}{name}, &fstatus); WRITE_TRACE(\"%lli{sep}\", (long long int) fstatus);}}"
+        if basetype == "MPI_Status":
+            if is_ptr: 
+                return f"if (({name} == MPI_STATUSES_IGNORE) || ({name} == MPI_STATUSES_IGNORE)) {{WRITE_TRACE(\"%lli\", (long long int) {name});}} else {{WRITE_TRACE(\"%p:[%i,%i,%i]{sep}\", {name}, ({ref}{name})->MPI_SOURCE, ({ref}{name})->MPI_TAG, ({ref}{name})->MPI_ERROR);}}\n"
             else:
-                return f"{{MPI_Fint fstatus; PMPI_Status_c2f({ref}{name}, &fstatus); WRITE_TRACE(\"%lli{sep}\", (long long int) fstatus);}}"
+                return f"WRITE_TRACE(\"%p:[%i,%i,%i]{sep}\", {name}, ({ref}{name})->MPI_SOURCE, ({ref}{name})->MPI_TAG, ({ref}{name})->MPI_ERROR);\n"
+            
         return f"  WRITE_TRACE(\"%lli{sep}\", (long long int) P{basetype}_c2f({deref}{name}));\n"
-        
+
 
     def tracer_for_simple_arg(self, name, typestr, func, sep=":"):
         # strip const, shouldn't make a difference how we trace
