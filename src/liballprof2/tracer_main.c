@@ -71,7 +71,7 @@ static void lap_collect_traces(void) {
     PMPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     int trace_size = ftell(lap_fptr);
     fseek(lap_fptr, 0, SEEK_SET);
-    int* trace_sizes = malloc(comm_size);
+    int* trace_sizes = malloc(comm_size * sizeof(int));
     if (trace_sizes == NULL) {
       fprintf(stderr, "lap2 ran out of memory when collecting traces :(\n");
       return;
