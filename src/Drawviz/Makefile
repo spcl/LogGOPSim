@@ -1,6 +1,6 @@
 CXXFLAGS= -O0 -Wno-deprecated -Wall
 CCFLAGS= -O0 
-LDFLAGS= -lps -lboost_regex-mt
+LDFLAGS= -lps -lboost_regex
 
 all:
 	gengetopt < drawviz.ggo
