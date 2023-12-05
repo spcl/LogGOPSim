@@ -169,7 +169,6 @@ int main(int argc, char **argv) {
 		maxtime -= args_info.starttime_arg;
 		TLViz.draw_everything(maxtime);
 		TLViz.close_graph();
-
 	}
 	else {
 		fprintf(stderr, "Unable to open file with starttimes (%s)\n", args_info.inputfile_arg);
