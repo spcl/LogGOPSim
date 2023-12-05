@@ -15,6 +15,7 @@
 #include <fstream>
 #include <iostream>
 #include <assert.h>
+#include <inttypes.h>
 #include <libps/pslib.h>
 
 #include "TimelineDrawing.hpp"
@@ -38,7 +39,7 @@ void TimelineDrawing::init_graph(int numranks, int numcpus, int width = 800, int
 	PS_open_file(this->psdoc, filename.c_str());
 	PS_begin_page(this->psdoc, (this->numranks+2)*this->ranksep, (this->numranks+2)*this->ranksep);
 	this->psfont = PS_findfont(this->psdoc, "Helvetica", "", 0);
-	PS_setfont(psdoc, psfont, this->fontsize);
+	PS_setfont(this->psdoc, this->psfont, this->fontsize);
 	
 }
 
@@ -152,7 +153,7 @@ void TimelineDrawing::draw_seperator(int rank, int cpu, int pos) {
 	PS_stroke(psdoc);
 }
 
-void TimelineDrawing::draw_osend(int rank, int cpu, int start, int end, float r, float g, float b) {
+void TimelineDrawing::draw_osend(int rank, int cpu, uint64_t start, uint64_t end, float r, float g, float b) {
 
 	PS_setcolor(psdoc, "stroke", "rgb", r, g, b, 0.0);
 	PS_setlinewidth(psdoc, args_info.linethickness_arg+1.0);
@@ -181,7 +182,7 @@ void TimelineDrawing::draw_osend(int rank, int cpu, int start, int end, float r,
 	}
 }
 
-void TimelineDrawing::draw_orecv(int rank, int cpu, int start, int end, float r, float g, float b) {
+void TimelineDrawing::draw_orecv(int rank, int cpu, uint64_t start, uint64_t end, float r, float g, float b) {
 
 	PS_setcolor(psdoc, "stroke", "rgb", r, g, b, 0.0);
 	PS_setlinewidth(psdoc, args_info.linethickness_arg+1.0);
@@ -211,7 +212,7 @@ void TimelineDrawing::draw_orecv(int rank, int cpu, int start, int end, float r,
 
 }
 
-void TimelineDrawing::draw_loclop(int rank, int cpu, int start, int end, float r, float g, float b) {
+void TimelineDrawing::draw_loclop(int rank, int cpu, uint64_t start, uint64_t end, float r, float g, float b) {
 
 	PS_setcolor(psdoc, "stroke", "rgb", r, g, b, 0.0);
 
@@ -238,7 +239,7 @@ void TimelineDrawing::draw_loclop(int rank, int cpu, int start, int end, float r
 
 }
 
-void TimelineDrawing::draw_noise(int rank, int cpu,  int start, int end, float r, float g, float b) {
+void TimelineDrawing::draw_noise(int rank, int cpu,  uint64_t start, uint64_t end, float r, float g, float b) {
 
 	PS_setcolor(psdoc, "stroke", "rgb", r, g, b, 0.0);
 
@@ -264,7 +265,7 @@ void TimelineDrawing::draw_noise(int rank, int cpu,  int start, int end, float r
 
 }
 
-void TimelineDrawing::draw_transmission(int source, int dest, int starttime, int endtime, int size, int G, float r, float g, float b) {
+void TimelineDrawing::draw_transmission(int source, int dest, uint64_t starttime, uint64_t endtime, int size, int G, float r, float g, float b) {
 
 	PS_setcolor(psdoc, "stroke", "rgb", r, g, b, 0.0);
 	PS_setlinewidth(psdoc, args_info.linethickness_arg);
@@ -304,7 +305,7 @@ void TimelineDrawing::draw_transmission(int source, int dest, int starttime, int
 	}
 }
 
-void TimelineDrawing::add_osend(int rank, int start, int end, int cpu, float r, float g, float b) {
+void TimelineDrawing::add_osend(int rank, uint64_t start, uint64_t end, int cpu, float r, float g, float b) {
 	
 	overh os;
 	os.type = 1;
@@ -320,7 +321,7 @@ void TimelineDrawing::add_osend(int rank, int start, int end, int cpu, float r, 
 
 }
 
-void TimelineDrawing::add_orecv(int rank, int start, int end, int cpu, float r, float g, float b) {
+void TimelineDrawing::add_orecv(int rank, uint64_t start, uint64_t end, int cpu, float r, float g, float b) {
 	
 	overh orecv;
 	orecv.type = 2;
@@ -336,7 +337,7 @@ void TimelineDrawing::add_orecv(int rank, int start, int end, int cpu, float r, 
 
 }
 
-void TimelineDrawing::add_loclop(int rank, int start, int end, int cpu, float r, float g, float b) {
+void TimelineDrawing::add_loclop(int rank, uint64_t start, uint64_t end, int cpu, float r, float g, float b) {
 	
 	overh lop;
 	lop.type = 3;
@@ -352,7 +353,7 @@ void TimelineDrawing::add_loclop(int rank, int start, int end, int cpu, float r,
 
 }
 
-void TimelineDrawing::add_noise(int rank, int start, int end, int cpu, float r, float g, float b) {
+void TimelineDrawing::add_noise(int rank, uint64_t start, uint64_t end, int cpu, float r, float g, float b) {
 	
 	overh noise;
 	noise.type = 4;
@@ -368,7 +369,7 @@ void TimelineDrawing::add_noise(int rank, int start, int end, int cpu, float r, 
 
 }
 
-void TimelineDrawing::add_transmission(int source, int dest, int starttime, int endtime, int size, int G, float r, float g, float b) {
+void TimelineDrawing::add_transmission(int source, int dest, uint64_t starttime, uint64_t endtime, int size, int G, float r, float g, float b) {
 	
 	trans tm;
 	tm.source = source;

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <vector>
+#include <inttypes.h>
 
 class TimelineVisualization {
 
@@ -54,7 +55,7 @@ class TimelineVisualization {
     write_events(false);
   }
 	
-  void add_osend(int rank, int start, int end, int cpu, float r=0.0, float g=0.0, float b=1.0) {
+  void add_osend(int rank, uint64_t start, uint64_t end, int cpu, float r=0.0, float g=0.0, float b=1.0) {
     if(!enable) return;
     
     std::stringstream outstream;
@@ -63,7 +64,7 @@ class TimelineVisualization {
 
   }
 
-  void add_orecv(int rank, int start, int end, int cpu, float r=0.0, float g=0.0, float b=1.0) {
+  void add_orecv(int rank, uint64_t start, uint64_t end, int cpu, float r=0.0, float g=0.0, float b=1.0) {
     if(!enable) return;
     
     std::stringstream os;
@@ -72,7 +73,7 @@ class TimelineVisualization {
 
   }
 
-  void add_loclop(int rank, int start, int end, int cpu, float r=1.0, float g=0.0, float b=0.0) {
+  void add_loclop(int rank, uint64_t start, uint64_t end, int cpu, float r=1.0, float g=0.0, float b=0.0) {
     if(!enable) return;
     
     std::stringstream os;
@@ -81,7 +82,7 @@ class TimelineVisualization {
 
   }
   
-  void add_noise(int rank, int start, int end, int cpu, float r=0.0, float g=1.0, float b=0.0) {
+  void add_noise(int rank, uint64_t start, uint64_t end, int cpu, float r=0.0, float g=1.0, float b=0.0) {
     if(!enable) return;
     
     std::stringstream os;
@@ -90,7 +91,7 @@ class TimelineVisualization {
 
   }
 
-  void add_transmission(int source, int dest, int starttime, int endtime, int size, int G, float r=0.0, float g=0.0, float b=1.0) {
+  void add_transmission(int source, int dest, uint64_t starttime, uint64_t endtime, int size, int G, float r=0.0, float g=0.0, float b=1.0) {
     if(!enable) return;
     
     std::stringstream os;

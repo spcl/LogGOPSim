@@ -14,6 +14,7 @@
 #include <assert.h>
 #include <vector>
 #include <libps/pslib.h>
+#include <inttypes.h>
 #include "cmdline.h"
 
 class overh {
@@ -21,8 +22,8 @@ class overh {
 		int type; // 1 = osend, 2 = orecv
 		int rank;
 		int cpu;
-		int start;
-		int end;
+		uint64_t start;
+		uint64_t end;
 		float r;
 		float g;
 		float b;
@@ -32,8 +33,8 @@ class trans {
 	public:
 		int source;
 		int dest;
-		int starttime;
-		int endtime;
+		uint64_t starttime;
+		uint64_t endtime;
 		int size;
 		int G;		
 		int r;		
@@ -76,18 +77,18 @@ class TimelineDrawing {
 	void draw_everything(int maxtime);
 	
 	void draw_ranklines();
-	void draw_osend(int rank, int cpu, int start, int end, float r, float g, float b);
-	void draw_orecv(int rank, int cpu, int start, int end, float r, float g, float b);
-	void draw_transmission(int source, int dest, int starttime, int endtime, int size, int G, float r, float g, float b);
-	void draw_loclop(int rank, int cpu, int start, int end, float r, float g, float b);
-	void draw_noise(int rank, int cpu, int start, int end, float r, float g, float b);
+	void draw_osend(int rank, int cpu, uint64_t start, uint64_t end, float r, float g, float b);
+	void draw_orecv(int rank, int cpu, uint64_t start, uint64_t end, float r, float g, float b);
+	void draw_transmission(int source, int dest, uint64_t starttime, uint64_t endtime, int size, int G, float r, float g, float b);
+	void draw_loclop(int rank, int cpu, uint64_t start, uint64_t end, float r, float g, float b);
+	void draw_noise(int rank, int cpu, uint64_t start, uint64_t end, float r, float g, float b);
 	void draw_seperator(int rank, int cpu, int pos);
 	
-	void add_osend(int rank, int start, int end, int cpu, float r, float g, float b);
-	void add_orecv(int rank, int start, int end, int cpu, float r, float g, float b);
-	void add_transmission(int source, int dest, int starttime, int endtime, int size, int G, float r, float g, float b);
-	void add_loclop(int rank, int start, int end, int cpu, float r, float g, float b);
-	void add_noise(int rank, int start, int end, int cpu, float r, float g, float b);
+	void add_osend(int rank, uint64_t start, uint64_t end, int cpu, float r, float g, float b);
+	void add_orecv(int rank, uint64_t start, uint64_t end, int cpu, float r, float g, float b);
+	void add_transmission(int source, int dest, uint64_t starttime, uint64_t endtime, int size, int G, float r, float g, float b);
+	void add_loclop(int rank, uint64_t start, uint64_t end, int cpu, float r, float g, float b);
+	void add_noise(int rank, uint64_t start, uint64_t end, int cpu, float r, float g, float b);
 };
 
 
