@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <algorithm>
 
 #include "Parser.hpp"
 
@@ -12,22 +13,25 @@ class Goal {
 		Graph graph;
 		uint32_t rank;
 		uint32_t num_ranks;
+		const Schema* schema; // NULL writes the legacy 39-byte format
 
-		uint8_t MaxCPU(uint8_t cpu = 0) {
-			static uint8_t max_cpu = 0;
+		uint32_t MaxCPU(uint32_t cpu = 0) {
+			static uint32_t max_cpu = 0;
 			if (cpu > max_cpu) max_cpu = cpu;
 			return max_cpu;
 		}
 	
-		uint8_t MaxNIC(uint8_t nic = 0) {
-			static uint8_t max_nic = 0;
+		uint32_t MaxNIC(uint32_t nic = 0) {
+			static uint32_t max_nic = 0;
 			if (nic > max_nic) max_nic = nic;
 			return max_nic;
 		}
 			
 	public:
+
+		Goal() : rank(0), num_ranks(0), schema(NULL) {}
 	
-		goalop_t Send(uint32_t src, uint32_t dest, uint64_t size, uint32_t tag, uint8_t cpu, uint8_t nic) {
+		goalop_t Send(uint32_t src, uint64_t dest, uint64_t size, uint64_t tag, uint32_t cpu, uint32_t nic) {
 			
 			Node* n = graph.addNode();
 			
@@ -44,7 +48,7 @@ class Goal {
 			return n;
 		}
 
-		goalop_t Recv(uint32_t src, uint32_t dest, uint64_t size, uint32_t tag, uint8_t cpu, uint8_t nic) {
+		goalop_t Recv(uint64_t src, uint32_t dest, uint64_t size, uint64_t tag, uint32_t cpu, uint32_t nic) {
 		
 			Node* n = graph.addNode();
 			
@@ -61,7 +65,7 @@ class Goal {
 			return n;
 		}
 
-		goalop_t Calc(uint32_t src, uint64_t size, uint8_t cpu, uint8_t nic) {
+		goalop_t Calc(uint32_t src, uint64_t size, uint32_t cpu, uint32_t nic) {
 		
 			Node* n = graph.addNode();
 			
@@ -102,7 +106,12 @@ class Goal {
 				}
 			}
 
-			graph.serialize_mmap(fd, rank, num_ranks, MaxCPU(), MaxNIC());
+			if (schema != NULL) {
+				graph.serialize_goalx(fd, rank, num_ranks, MaxCPU(), MaxNIC(), *schema);
+			} else {
+				// values above 255 are rejected per node by serialize_mmap
+				graph.serialize_mmap(fd, rank, num_ranks, (uint8_t) std::min(MaxCPU(), 255u), (uint8_t) std::min(MaxNIC(), 255u));
+			}
 			
 			// close the binary schedule if it is the last rank
 			if (rank == num_ranks-1) {
@@ -118,6 +127,10 @@ class Goal {
 
 		void SetNumRanks(uint32_t nr) {
 			num_ranks = nr;
+		}
+
+		void SetSchema(const Schema* s) {
+			schema = s;
 		}
 
 };
