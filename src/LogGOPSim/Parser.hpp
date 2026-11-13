@@ -564,8 +564,9 @@ class Graph {
 
 /* decoding information shared by all ranks of one trace, computed once from the schema */
 enum DecoderKind {
-	DECODER_INTERP, // schema-agnostic: precomputed shift and mask per field, any layout
-	DECODER_FIXED   // the original hand-written decoder, constant offsets, legacy files only
+	DECODER_INTERP,         // "interp": the interpreter with get_simple() for the fields that qualify, see NodeLayout::simple_ok
+	DECODER_FIXED,          // "fixed": the original hand-written decoder, constant offsets, legacy files only
+	DECODER_INTERP_GENERIC  // "interp-generic": schema-agnostic, get() for every field, any layout
 };
 
 struct NodeLayout {
@@ -575,13 +576,92 @@ struct NodeLayout {
 	bool     legacy; // depcnt lives at byte 0 of each record, inside the mapping
 	DecoderKind decoder;
 
-	NodeLayout() : record_bytes(0), legacy(true), decoder(DECODER_INTERP) {}
+	NodeLayout() : record_bytes(0), legacy(true), decoder(DECODER_INTERP_GENERIC) {}
 
 	NodeLayout(const Schema& s, DecoderKind d) :
 		type(s.builtin(FK_TYPE)), peer(s.builtin(FK_PEER)), size(s.builtin(FK_SIZE)),
 		tag(s.builtin(FK_TAG)), cpu(s.builtin(FK_CPU)), nic(s.builtin(FK_NIC)),
 		ndep(s.builtin(FK_NDEP)), depix(s.builtin(FK_DEPIX)), nsdep(s.builtin(FK_NSDEP)),
 		sdepix(s.builtin(FK_SDEPIX)), record_bytes(s.record_bytes), legacy(s.legacy), decoder(d) {}
+
+	/*
+	 * Whether DECODER_INTERP may be used: the fields it reads with
+	 * get_simple() must be present and must not need a 9th byte. Validation
+	 * already guarantees this for every schema txt2bin writes (peer, tag and
+	 * the edge fields are at most 32 bits); only an unusually wide type field
+	 * could fail it, and then the generic interpreter is used.
+	 */
+	bool simple_ok() const {
+		return type.simple() && peer.simple() && tag.simple() && ndep.simple() && depix.simple() && nsdep.simple();
+	}
+};
+
+/*
+ * One decoder per DecoderKind, all with the same signature: the payload fields
+ * go into N, the edge-list fields into the four counters. Kept as separate
+ * blocks so each can be selected (and benchmarked) on its own.
+ */
+template <DecoderKind K> struct Decoder;
+
+/* the original hand-written decoder: constant offsets into the 39-byte legacy record */
+template <> struct Decoder<DECODER_FIXED> {
+	template <typename T> static GOALX_INLINE T at(const char* rec, size_t off) {
+		T v;
+		memcpy(&v, rec + off, sizeof(T));
+		return v;
+	}
+	static GOALX_INLINE void decode(const NodeLayout&, const char* rec, DeserializedNode& N, uint32_t& num_deps,
+	                                uint32_t& deps_ix, uint32_t& num_startdeps, uint32_t& startdeps_ix) {
+		N.Type = (char) at<uint8_t>(rec, 4); // after depcnt
+		N.Peer = at<uint32_t>(rec, 5);
+		N.Size = at<uint64_t>(rec, 9);
+		N.Tag  = at<uint32_t>(rec, 17);
+		N.Proc = at<uint8_t>(rec, 21);
+		N.Nic  = at<uint8_t>(rec, 22);
+		num_deps      = at<uint32_t>(rec, 23);
+		deps_ix       = at<uint32_t>(rec, 27);
+		num_startdeps = at<uint32_t>(rec, 31);
+		startdeps_ix  = at<uint32_t>(rec, 35);
+	}
+};
+
+/* the schema-agnostic interpreter: one precomputed accessor per field the simulator uses */
+template <> struct Decoder<DECODER_INTERP_GENERIC> {
+	static GOALX_INLINE void decode(const NodeLayout& L, const char* rec, DeserializedNode& N, uint32_t& num_deps,
+	                                uint32_t& deps_ix, uint32_t& num_startdeps, uint32_t& startdeps_ix) {
+		N.Type = (char) L.type.get(rec);
+		N.Peer = (uint32_t) L.peer.get(rec);
+		N.Size = L.size.get(rec);
+		N.Tag  = (uint32_t) L.tag.get(rec);
+		N.Proc = (uint8_t) L.cpu.get(rec);
+		N.Nic  = (uint8_t) L.nic.get(rec);
+		num_deps      = (uint32_t) L.ndep.get(rec);
+		deps_ix       = (uint32_t) L.depix.get(rec);
+		num_startdeps = (uint32_t) L.nsdep.get(rec);
+		startdeps_ix  = L.sdepix.present ? (uint32_t) L.sdepix.get(rec) : deps_ix + num_deps;
+	}
+};
+
+/*
+ * The same interpreter, using what validation guarantees: type, peer, tag and
+ * the edge fields are present and fit one 64-bit load, and only peer and tag
+ * can hold ANY. Size (up to 64 bits), cpu, nic (optional) and sdepix
+ * (optional) keep the generic path.
+ */
+template <> struct Decoder<DECODER_INTERP> {
+	static GOALX_INLINE void decode(const NodeLayout& L, const char* rec, DeserializedNode& N, uint32_t& num_deps,
+	                                uint32_t& deps_ix, uint32_t& num_startdeps, uint32_t& startdeps_ix) {
+		N.Type = (char) L.type.get_simple<false>(rec);
+		N.Peer = (uint32_t) L.peer.get_simple<true>(rec);
+		N.Size = L.size.get(rec);
+		N.Tag  = (uint32_t) L.tag.get_simple<true>(rec);
+		N.Proc = (uint8_t) L.cpu.get(rec);
+		N.Nic  = (uint8_t) L.nic.get(rec);
+		num_deps      = (uint32_t) L.ndep.get_simple<false>(rec);
+		deps_ix       = (uint32_t) L.depix.get_simple<false>(rec);
+		num_startdeps = (uint32_t) L.nsdep.get_simple<false>(rec);
+		startdeps_ix  = L.sdepix.present ? (uint32_t) L.sdepix.get(rec) : deps_ix + num_deps;
+	}
 };
 
 class SerializedGraph {
@@ -621,36 +701,31 @@ class SerializedGraph {
 
 	}
 
-	/* the schema-agnostic interpreter: one precomputed accessor per field the simulator uses */
 	/* decodes the payload and edge-list fields of one record; the branch is constant for a run */
 	inline void decode_record(const char* rec, DeserializedNode& N, uint32_t& num_deps, uint32_t& deps_ix,
 	                          uint32_t& num_startdeps, uint32_t& startdeps_ix) const {
 
-		if (layout->decoder == DECODER_FIXED) {
-			// the original decoder for the 39-byte legacy record
-			N.Type = (char) *(rec + sizeof(uint32_t)); // after depcnt
-			N.Peer = (uint32_t) *( (uint32_t*) (rec + sizeof(uint32_t) + sizeof(char)) ); // after depcnt + type
-			N.Size = (uint64_t) *( (uint64_t*) (rec + sizeof(uint32_t) + sizeof(char) + sizeof(uint32_t)));
-			N.Tag = (uint32_t) *( (uint32_t*) (rec + sizeof(uint32_t) + sizeof(char) + sizeof(uint32_t) + sizeof(uint64_t)));
-			N.Proc = (uint8_t) *( (uint8_t*) (rec + sizeof(uint32_t) + sizeof(char) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(uint32_t)));
-			N.Nic = (uint8_t) *( (uint8_t*) (rec + sizeof(uint32_t) + sizeof(char) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(uint32_t) + sizeof(uint8_t)));
-			num_deps =      (uint32_t) *( (uint32_t*) (rec + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*3 + sizeof(uint8_t)*2));
-			deps_ix =       (uint32_t) *( (uint32_t*) (rec + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*4 + sizeof(uint8_t)*2));
-			num_startdeps = (uint32_t) *( (uint32_t*) (rec + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*5 + sizeof(uint8_t)*2));
-			startdeps_ix =  (uint32_t) *( (uint32_t*) (rec + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*6 + sizeof(uint8_t)*2));
-			return;
+		switch (layout->decoder) {
+			case DECODER_FIXED:  Decoder<DECODER_FIXED>::decode(*layout, rec, N, num_deps, deps_ix, num_startdeps, startdeps_ix); break;
+			case DECODER_INTERP: Decoder<DECODER_INTERP>::decode(*layout, rec, N, num_deps, deps_ix, num_startdeps, startdeps_ix); break;
+			default:             Decoder<DECODER_INTERP_GENERIC>::decode(*layout, rec, N, num_deps, deps_ix, num_startdeps, startdeps_ix); break;
 		}
+	}
 
-		N.Type = (char) layout->type.get(rec);
-		N.Peer = (uint32_t) layout->peer.get(rec);
-		N.Size = layout->size.get(rec);
-		N.Tag = (uint32_t) layout->tag.get(rec);
-		N.Proc = (uint8_t) layout->cpu.get(rec);
-		N.Nic = (uint8_t) layout->nic.get(rec);
-		num_deps = (uint32_t) layout->ndep.get(rec);
-		deps_ix = (uint32_t) layout->depix.get(rec);
-		num_startdeps = (uint32_t) layout->nsdep.get(rec);
-		startdeps_ix = layout->sdepix.present ? (uint32_t) layout->sdepix.get(rec) : deps_ix + num_deps;
+	/* the decode-only benchmark loop for one decoder, with the layout in a local copy */
+	template <DecoderKind K>
+	uint64_t decode_all() const {
+		const NodeLayout L = *layout;
+		const size_t rb = L.record_bytes;
+		const char* rec = records;
+		uint64_t sum = 0;
+		DeserializedNode N;
+		uint32_t ndep, depix, nsdep, sdepix;
+		for (uint32_t i = 0; i < num_nodes; i++, rec += rb) {
+			Decoder<K>::decode(L, rec, N, ndep, depix, nsdep, sdepix);
+			sum += (uint64_t) (uint8_t) N.Type + N.Peer + N.Size + N.Tag + N.Proc + N.Nic + ndep + depix + nsdep + sdepix;
+		}
+		return sum;
 	}
 
 	DeserializedNode get_node_by_offset(uint32_t offset) {
@@ -701,14 +776,12 @@ class SerializedGraph {
 
 	/* decodes every record of this rank, for measuring decoder throughput; the checksum compares decoders */
 	uint64_t DecodeAll() const {
-		uint64_t sum = 0;
-		DeserializedNode N;
-		uint32_t ndep, depix, nsdep, sdepix;
-		for (uint32_t i = 0; i < num_nodes; i++) {
-			decode_record(records + (size_t) layout->record_bytes * i, N, ndep, depix, nsdep, sdepix);
-			sum += (uint64_t) (uint8_t) N.Type + N.Peer + N.Size + N.Tag + N.Proc + N.Nic + ndep + depix + nsdep + sdepix;
+		// the decoder is chosen once, outside the loop
+		switch (layout->decoder) {
+			case DECODER_FIXED:         return decode_all<DECODER_FIXED>();
+			case DECODER_INTERP:        return decode_all<DECODER_INTERP>();
+			default:                    return decode_all<DECODER_INTERP_GENERIC>();
 		}
-		return sum;
 	}
 
 	void write_as_dot(char *filename) {
@@ -977,12 +1050,15 @@ class Parser {
 
 		DecoderKind decoder = schema.legacy ? DECODER_FIXED : DECODER_INTERP;
 		if (decoder_name != NULL && strcmp(decoder_name, "interp") == 0) decoder = DECODER_INTERP;
+		if (decoder_name != NULL && strcmp(decoder_name, "interp-generic") == 0) decoder = DECODER_INTERP_GENERIC;
 		if (decoder_name != NULL && strcmp(decoder_name, "fixed") == 0) {
 			if (!schema.legacy) fail(filename, "the fixed decoder only reads legacy (4223) traces");
 			decoder = DECODER_FIXED;
 		}
 
 		layout = NodeLayout(schema, decoder);
+		// the interpreter's fast path needs simple fields; otherwise fall back to the generic one
+		if (decoder == DECODER_INTERP && !layout.simple_ok()) layout.decoder = DECODER_INTERP_GENERIC;
 		schedules.reserve(num_ranks_in_schedule);
 		for (uint32_t cnt=0; cnt<num_ranks_in_schedule; cnt++) {
 			schedules.emplace_back(rank_block(filename, cnt), mapping_start + mapping_length, &layout, cnt);
@@ -998,7 +1074,11 @@ class Parser {
 	}
 
 	const char* GetDecoderName() {
-		return layout.decoder == DECODER_FIXED ? "fixed" : "interp";
+		switch (layout.decoder) {
+			case DECODER_FIXED:         return "fixed";
+			case DECODER_INTERP:        return "interp";
+			default:                    return "interp-generic";
+		}
 	}
 
 	void PrintSchema(FILE* fd) {

@@ -94,7 +94,27 @@ struct FieldDesc {
 	std::string name;
 };
 
-/* precomputed decoding information for one field: no loop, no switch at decode time */
+#if defined(__GNUC__)
+#define GOALX_INLINE inline __attribute__((always_inline))
+#else
+#define GOALX_INLINE inline
+#endif
+
+/*
+ * Precomputed decoding information for one field: no loop and no switch at
+ * decode time. Two ways to read a field:
+ *
+ * - get():        any field. Branches on present / split / any_sentinel; they
+ *                 are constant per field and per run, so they predict perfectly.
+ * - get_simple(): a present field with shift + width <= 64 (no 9th byte): one
+ *                 load, one shift, one mask, and the ANY check only where the
+ *                 caller asks for it at compile time. NodeLayout checks once at
+ *                 load time that the fields read this way qualify.
+ *
+ * A fully branch-free get() was measured and was ~40% slower: it does the
+ * 9th-byte load, a second variable shift and an arithmetic select for every
+ * field, while the predicted branches cost almost nothing.
+ */
 struct Accessor {
 	uint32_t byte_off;
 	uint8_t  shift;
@@ -120,7 +140,10 @@ struct Accessor {
 		dflt         = f->dflt;
 	}
 
-	inline uint64_t get(const char* rec) const {
+	/* true if get_simple() returns the same as get() for this field */
+	bool simple() const { return present && !split; }
+
+	GOALX_INLINE uint64_t get(const char* rec) const {
 		if (!present) return dflt;
 		uint64_t w;
 		memcpy(&w, rec + byte_off, sizeof(w));
@@ -128,6 +151,16 @@ struct Accessor {
 		if (split) v |= ((uint64_t) (uint8_t) rec[byte_off + 8]) << (64 - shift);
 		v &= mask;
 		if (any_sentinel && v == mask) return 0xFFFFFFFFULL;
+		return v;
+	}
+
+	/* ANY: the field may hold the all-ones ANY sentinel (peer, tag) */
+	template <bool ANY>
+	GOALX_INLINE uint64_t get_simple(const char* rec) const {
+		uint64_t w;
+		memcpy(&w, rec + byte_off, sizeof(w));
+		uint64_t v = (w >> shift) & mask;
+		if (ANY && any_sentinel && v == mask) return 0xFFFFFFFFULL;
 		return v;
 	}
 };

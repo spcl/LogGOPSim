@@ -24,7 +24,9 @@ trap 'rm -rf "$DIR"' EXIT
 "$TXT2BIN" -i "$GOAL" -o "$DIR/legacy.bin" > /dev/null
 "$TXT2BIN" -i "$GOAL" -o "$DIR/goalx.bin" --format goalx > /dev/null
 cp "$DIR/legacy.bin" "$DIR/legacy-interp.bin"
-VARIANTS="legacy legacy-interp goalx"
+cp "$DIR/legacy.bin" "$DIR/legacy-generic.bin"
+cp "$DIR/goalx.bin" "$DIR/goalx-generic.bin"
+VARIANTS="legacy legacy-interp legacy-generic goalx goalx-generic"
 if [ -n "$SCHEMA" ]; then
 	"$TXT2BIN" -i "$GOAL" -o "$DIR/narrow.bin" --format goalx --schema "$SCHEMA" > /dev/null
 	VARIANTS="$VARIANTS narrow"
@@ -35,6 +37,8 @@ for v in $VARIANTS; do
 	DECODER=auto
 	[ "$v" = legacy ] && DECODER=fixed
 	[ "$v" = legacy-interp ] && DECODER=interp
+	[ "$v" = legacy-generic ] && DECODER=interp-generic
+	[ "$v" = goalx-generic ] && DECODER=interp-generic
 	"$SIM" -f "$DIR/$v.bin" --decoder $DECODER -V "$DIR/$v.viz" | grep -E '^Host|^Maximum|queue on host' > "$DIR/$v.txt"
 done
 
