@@ -45,10 +45,11 @@ typedef struct Item {
 	char *label1;
 	char *label2;
 	uint64_t size;
-	uint32_t target;
-	uint32_t tag;
-	uint8_t cpu;
-	uint8_t nic;	
+	// parsed at full width, the writer checks them against the output format
+	uint64_t target;
+	uint64_t tag;
+	uint64_t cpu;
+	uint64_t nic;
 } Item;
 
 enum OpTypes {
@@ -108,6 +109,12 @@ void process_item(Scanner *s, Item *item) {
 */
 	
 	goalop_t op, op2;
+
+	if (item->cpu > 0xFFFFFFFFULL || item->nic > 0xFFFFFFFFULL) {
+		fprintf(stderr, "Error: cpu %llu / nic %llu in line %u is out of range\n",
+		        (unsigned long long) item->cpu, (unsigned long long) item->nic, s->line);
+		exit(EXIT_FAILURE);
+	}
 
 	switch (item->type) {
 		case Undefined:
@@ -758,9 +765,35 @@ int main(int argc, char **argv){
     
 	uint32_t numranks = -1;
 
+	Schema schema;
+	bool goalx = strcmp(args_info.format_arg, "goalx") == 0;
+	if (!goalx && (args_info.schema_given || args_info.meta_given)) {
+		fprintf(stderr, "--schema and --meta require --format goalx\n");
+		exit(EXIT_FAILURE);
+	}
+	if (goalx) {
+		std::string err;
+		if (!Schema::from_spec(args_info.schema_arg, &schema, &err)) {
+			fprintf(stderr, "Invalid --schema: %s\n", err.c_str());
+			exit(EXIT_FAILURE);
+		}
+		schema.meta.push_back(std::make_pair(std::string("producer"), std::string("txt2bin")));
+		schema.meta.push_back(std::make_pair(std::string("source"), std::string(args_info.input_arg)));
+		for (unsigned int i = 0; i < args_info.meta_given; i++) {
+			std::string kv = args_info.meta_arg[i];
+			size_t eq = kv.find('=');
+			if (eq == std::string::npos || eq == 0) {
+				fprintf(stderr, "Invalid --meta '%s', expected key=value\n", kv.c_str());
+				exit(EXIT_FAILURE);
+			}
+			schema.meta.push_back(std::make_pair(kv.substr(0, eq), kv.substr(eq + 1)));
+		}
+	}
+
 	while (true) {
 		
 		in.schedule = new Goal;
+		if (goalx) in.schedule->SetSchema(&schema);
 		
 		scan(&in);
 

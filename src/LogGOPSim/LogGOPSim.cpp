@@ -31,6 +31,7 @@
 #include "loggopsim_cmdline.h"
 
 #include <sys/time.h>
+#include <chrono>
 
 #include "LogGOPSim.hpp"
 #include "Network.hpp"
@@ -61,12 +62,23 @@ typedef unsigned int uint;
 typedef unsigned long int ulint;
 typedef unsigned long long int ullint;
 
+/*
+ * match() runs for every message. With plain "inline", GCC stopped inlining it
+ * into main() once main() grew, which made matching-heavy traces (ring) ~18%
+ * slower. Forcing it keeps matching speed independent of main()'s size.
+ */
+#if defined(__GNUC__)
+#define MATCH_INLINE inline __attribute__((always_inline))
+#else
+#define MATCH_INLINE inline
+#endif
+
 #ifdef LIST_MATCH
 // TODO this is really slow - reconsider design of rq and uq!
 // matches and removes element from list if found, otherwise returns
 // false
 typedef std::list<ruqelem_t> ruq_t;
-static inline int match(const graph_node_properties &elem, ruq_t *q, ruqelem_t *retelem=NULL) {
+static MATCH_INLINE int match(const graph_node_properties &elem, ruq_t *q, ruqelem_t *retelem=NULL) {
 
   // MATCH attempts (i.e., number of elements searched to find a matching element)
   int match_attempts = 0;
@@ -94,7 +106,7 @@ class myhash { // I WANT LAMBDAS! :)
   }
 };
 typedef std::hash_map< std::pair</*tag*/int,int/*src*/>, std::queue<ruqelem_t>, myhash > ruq_t;
-static inline int match(const graph_node_properties &elem, ruq_t *q, ruqelem_t *retelem=NULL) {
+static MATCH_INLINE int match(const graph_node_properties &elem, ruq_t *q, ruqelem_t *retelem=NULL) {
   
   if(print) printf("++ [%i] searching matching queue for src %i tag %i\n", elem.host, elem.target, elem.tag);
 
@@ -140,7 +152,33 @@ int main(int argc, char **argv) {
   print=args_info.verbose_given;
   const uint32_t S=args_info.LogGOPS_S_arg;
 
-  Parser parser(args_info.filename_arg, args_info.save_mem_given);
+#ifdef __OPTIMIZE__
+  const char* build = "optimized";
+#else
+  const char* build = "debug";
+#endif
+  std::chrono::steady_clock::time_point tload = std::chrono::steady_clock::now();
+  Parser parser(args_info.filename_arg, args_info.save_mem_given, args_info.require_arg, args_info.decoder_arg);
+  double load_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - tload).count();
+  if (args_info.print_schema_given) {
+    parser.PrintSchema(stdout);
+    return 0;
+  }
+  if (args_info.bench_decode_given) {
+    // decoder throughput only: no dependency lists, no simulation
+    uint64_t records = 0, checksum = 0;
+    for (size_t r = 0; r < parser.schedules.size(); r++) records += parser.schedules[r].GetNumNodes();
+    std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+    for (int rep = 0; rep < args_info.bench_decode_arg; rep++) {
+      checksum = 0;
+      for (size_t r = 0; r < parser.schedules.size(); r++) checksum += parser.schedules[r].DecodeAll();
+    }
+    double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    printf("DECODE: decoder=%s build=%s records=%llu reps=%i seconds=%.6f records_per_s=%.1f checksum=%llu\n",
+           parser.GetDecoderName(), build, (unsigned long long) records, args_info.bench_decode_arg, s,
+           s > 0 ? records * (double) args_info.bench_decode_arg / s : 0.0, (unsigned long long) checksum);
+    return 0;
+  }
   Network net(&args_info);
 
   const uint p = parser.schedules.size();
@@ -208,6 +246,7 @@ int main(int argc, char **argv) {
 
 	struct timeval tstart, tend;
 	gettimeofday(&tstart, NULL);
+  std::chrono::steady_clock::time_point tsim = std::chrono::steady_clock::now();
 
   int host=0; 
   uint64_t num_events=0;
@@ -568,11 +607,15 @@ int main(int argc, char **argv) {
 	
   gettimeofday(&tend, NULL);
 	unsigned long int diff = tend.tv_sec - tstart.tv_sec;
+  double sim_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - tsim).count();
 
 #ifndef STRICT_ORDER
   ulint aqtime=0;
 #endif
 	printf("PERFORMANCE: Processes: %i \t Events: %lu \t Time: %lu s \t Speed: %.2f ev/s\n", p, (long unsigned int)aqtime, (long unsigned int)diff, (float)aqtime/(float)diff);
+  if (args_info.timing_given) {
+    printf("TIMING: decoder=%s build=%s load_s=%.6f sim_s=%.6f events=%lu\n", parser.GetDecoderName(), build, load_s, sim_s, (long unsigned int)aqtime);
+  }
 
   // check if all queues are empty!!
   bool ok=true;

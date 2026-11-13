@@ -22,3 +22,8 @@ option "network-type"   n  "Network type (LogGP=no network congestion; simple=si
 option "network-file"   -  "Input file for network (annotated dot format)" string optional
 option "qstat"          -  "Enable PQ and UQ statistics.  Argument is output filename prefix" default="Unknown" string optional
 
+option "require"        -  "Extra fields the trace must provide, as name[:min_width],... (e.g. gpu_id:6)" string optional
+option "print-schema"   -  "Print the trace's format and schema, then exit" flag off
+option "decoder"        -  "Record decoder: auto (fixed for legacy traces, interp for GOALX), interp (schema-agnostic interpreter), interp-generic (the interpreter without its fast path for simple fields) or fixed (original hand-written decoder, legacy traces only)" values="auto","interp","interp-generic","fixed" default="auto" string optional
+option "bench-decode"   -  "Decode every record of the trace <reps> times, print the decoder throughput and exit" int typestr="reps" optional
+option "timing"         -  "Print load and simulation times in seconds" flag off

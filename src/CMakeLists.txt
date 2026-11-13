@@ -74,6 +74,30 @@ add_test(NAME schedgen2_bcast COMMAND ${PYTHON_EXECUTABLE} schedgen.py bcast --o
 add_test(NAME txt2bin_schedgen2_bcast COMMAND txt2bin -i ${PROJECT_SOURCE_DIR}/Schedgen2/schedule.goal -o schedule.bin)
 add_test(NAME loggopsim_schedgen2_bcast COMMAND LogGOPSim -f schedule.bin)
 
+# test the self-describing GOALX format: legacy and GOALX must simulate identically
+set(GOALX_TESTS ${PROJECT_SOURCE_DIR}/../tests)
+set(GOALX_NARROW peer:11,tag:22,size:24,cpu:2,nic:1,ndep:12,depix:20,nsdep:4)
+add_test(NAME goalx_compare_features COMMAND sh ${GOALX_TESTS}/compare_formats.sh $<TARGET_FILE:LogGOPSim> $<TARGET_FILE:txt2bin> ${GOALX_TESTS}/goal_features.goal ${GOALX_NARROW})
+add_test(NAME goalx_compare_binary_tree COMMAND sh ${GOALX_TESTS}/compare_formats.sh $<TARGET_FILE:LogGOPSim> $<TARGET_FILE:txt2bin> ${PROJECT_SOURCE_DIR}/LogGOPSim/binary_tree_32.goal ${GOALX_NARROW})
+add_test(NAME goalx_compare_schedgen2_bcast COMMAND sh ${GOALX_TESTS}/compare_formats.sh $<TARGET_FILE:LogGOPSim> $<TARGET_FILE:txt2bin> ${PROJECT_SOURCE_DIR}/Schedgen2/schedule.goal ${GOALX_NARROW})
+set_tests_properties(goalx_compare_schedgen2_bcast PROPERTIES DEPENDS schedgen2_bcast)
+
+# values that do not fit the declared width are refused instead of truncated
+add_test(NAME txt2bin_legacy_rejects_tag_overflow COMMAND txt2bin -i ${GOALX_TESTS}/goal_tag_overflow.goal -o tag_overflow.bin)
+add_test(NAME txt2bin_goalx_rejects_tag_overflow COMMAND txt2bin -i ${GOALX_TESTS}/goal_tag_overflow.goal -o tag_overflow.bin --format goalx)
+add_test(NAME txt2bin_goalx_rejects_narrow_tag COMMAND txt2bin -i ${GOALX_TESTS}/goal_features.goal -o narrow_tag.bin --format goalx --schema tag:4)
+set_tests_properties(txt2bin_legacy_rejects_tag_overflow txt2bin_goalx_rejects_tag_overflow txt2bin_goalx_rejects_narrow_tag PROPERTIES WILL_FAIL TRUE)
+
+# the simulator refuses traces that lack a field it needs
+add_test(NAME txt2bin_goalx_features COMMAND txt2bin -i ${GOALX_TESTS}/goal_features.goal -o features.goalx.bin --format goalx)
+add_test(NAME txt2bin_goalx_features_gpu COMMAND txt2bin -i ${GOALX_TESTS}/goal_features.goal -o features_gpu.goalx.bin --format goalx --schema gpu_id:8)
+add_test(NAME loggopsim_goalx_require_missing COMMAND LogGOPSim -f features.goalx.bin --require gpu_id:6)
+add_test(NAME loggopsim_goalx_require_present COMMAND LogGOPSim -f features_gpu.goalx.bin --require gpu_id:6)
+set_tests_properties(loggopsim_goalx_require_missing PROPERTIES WILL_FAIL TRUE DEPENDS txt2bin_goalx_features)
+set_tests_properties(loggopsim_goalx_require_present PROPERTIES DEPENDS txt2bin_goalx_features_gpu)
+add_test(NAME loggopsim_goalx_rejects_fixed_decoder COMMAND LogGOPSim -f features.goalx.bin --decoder fixed)
+set_tests_properties(loggopsim_goalx_rejects_fixed_decoder PROPERTIES WILL_FAIL TRUE DEPENDS txt2bin_goalx_features)
+
 # test liballprof
 
 # test liballprof2

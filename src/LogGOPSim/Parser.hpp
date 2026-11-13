@@ -12,6 +12,7 @@
 #include <sys/types.h>
 
 #include "LogGOPSim.hpp"
+#include "TraceSchema.hpp"
 
 #define MAGIC_COOKIE 4223
 #define MAGIC_COOKIE_INVALID 2342
@@ -34,10 +35,11 @@ struct Node {
 	std::vector<Node*> StartDependOnMe;
 	uint32_t           DependenciesCnt;
 	uint32_t           offset;
-	uint32_t           Peer;
-	uint32_t           Tag;
-	uint8_t            Proc;
-	uint8_t            Nic;
+	// wider than in the binary, so that the writer can range-check instead of truncating
+	uint64_t           Peer;
+	uint64_t           Tag;
+	uint32_t           Proc;
+	uint32_t           Nic;
 	char               Type;
 	
 };
@@ -159,8 +161,8 @@ class Graph {
 				else if ((**it).Type == OPTYPE_RECV) strcpy(typestr, "Recv");
 				else if ((**it).Type == OPTYPE_CALC) strcpy(typestr, "Calc");
 				else strcpy(typestr, "Unkn");
-				fprintf(fd, "%i [label=\"<f0> Type: %s | <f1> Peer: %i | <f2> Size: %lu | <f3> Tag: %i | <f4> Proc: %i | <f5> Nic: %i \"]\n", 
-							 (**it).offset,    typestr,        (**it).Peer, (unsigned long int) (**it).Size,  (**it).Tag  , (**it).Proc,     (**it).Nic);
+				fprintf(fd, "%i [label=\"<f0> Type: %s | <f1> Peer: %llu | <f2> Size: %lu | <f3> Tag: %llu | <f4> Proc: %u | <f5> Nic: %u \"]\n", 
+							 (**it).offset,    typestr,        (unsigned long long) (**it).Peer, (unsigned long int) (**it).Size,  (unsigned long long) (**it).Tag  , (**it).Proc,     (**it).Nic);
 			}
 
 			for (std::vector<Node*>::iterator it = allNodes.begin(); it != allNodes.end(); it++) {
@@ -379,6 +381,12 @@ class Graph {
 
 		for (std::vector<Node*>::iterator it = allNodes.begin(); it != allNodes.end(); it++) {
 
+			// the legacy record has fixed widths, refuse values that would be truncated
+			check_value("peer", (**it).Peer, 32, rank, (**it).offset);
+			check_value("tag",  (**it).Tag,  32, rank, (**it).offset);
+			check_value("cpu",  (**it).Proc, 8,  rank, (**it).offset);
+			check_value("nic",  (**it).Nic,  8,  rank, (**it).offset);
+
 			*((uint32_t*) pos) = (**it).DependenciesCnt; 		pos += sizeof(uint32_t);	// number of actions this action depends on
 			*((char*) pos)     = (**it).Type;            		pos += sizeof(char);		// type of this action
 			*((uint32_t*) pos) = (**it).Peer;            		pos += sizeof(uint32_t);	// peer of this action
@@ -418,100 +426,426 @@ class Graph {
 
 		// munmap the files so that the contents get written
 		int r = munmap(mapping_start-sizeof(uint64_t), (size_t) (pos - mapping_start));
-		assert(r == 0);	
+		assert(r == 0);
 	}
 
+	static void check_value(const char* field, uint64_t value, uint8_t width, uint32_t rank, uint32_t node) {
+		if (!check_fits(value, width)) {
+			fprintf(stderr, "Error: field '%s' value %llu does not fit in %u bits (rank %u, node %u)\n",
+			        field, (unsigned long long) value, width, rank, node);
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	/* encodes one value into a GOALX record, refusing anything the declared width cannot hold */
+	static void encode_field(char* rec, const FieldDesc* f, const char* name, uint64_t value, uint32_t rank, uint32_t node) {
+		if (f == NULL) {
+			// an omitted field decodes as 0, so only 0 may be dropped
+			if (value != 0) {
+				fprintf(stderr, "Error: field '%s' is not in the schema, but rank %u node %u uses value %llu\n",
+				        name, rank, node, (unsigned long long) value);
+				exit(EXIT_FAILURE);
+			}
+			return;
+		}
+		uint64_t mask = width_mask(f->width);
+		if ((f->flags & FF_ANY_SENTINEL) && value == 0xFFFFFFFFULL) {
+			value = mask;
+		} else if (value > mask || ((f->flags & FF_ANY_SENTINEL) && value == mask)) {
+			fprintf(stderr, "Error: field '%s' value %llu does not fit in %u bits%s (rank %u, node %u)\n",
+			        name, (unsigned long long) value, f->width,
+			        value == mask ? ", all ones is reserved for ANY" : "", rank, node);
+			exit(EXIT_FAILURE);
+		}
+		put_bits(rec, f->bit_offset, f->width, value);
+	}
+
+	void serialize_goalx(int fd, uint32_t rank, uint32_t num_ranks, uint32_t max_cpu, uint32_t max_nic, const Schema& schema) {
+
+		static uint64_t filesize;
+		static uint32_t header_len;
+		std::vector<char> header;
+		uint64_t start;
+
+		find_root_nodes();
+
+		if (rank == 0) {
+			schema.serialize_header(header, num_ranks, max_cpu, max_nic);
+			header_len = header.size();
+			start = header_len + sizeof(uint64_t)*2*num_ranks; // rank data starts right after the jumptable
+		} else {
+			start = filesize;
+		}
+
+		const uint64_t rb = schema.record_bytes;
+		filesize = start;
+		filesize += sizeof(uint32_t)*2; // num nodes, num roots
+		filesize += sizeof(uint32_t)*RootNodes.size(); // root node offsets
+		filesize += sizeof(uint32_t)*allNodes.size(); // initial dependency counters
+		filesize += rb*allNodes.size(); // records
+		filesize += sizeof(uint32_t)*num_edges; // appendix
+		filesize += GOALX_PADDING;
+
+		if (ftruncate(fd, filesize) != 0) {
+			perror("couldn't enlarge the output file");
+			exit(EXIT_FAILURE);
+		}
+		char* map = (char*) mmap(NULL, filesize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+		if (map == MAP_FAILED) {
+			perror("couldn't mmap the output file");
+			exit(EXIT_FAILURE);
+		}
+		if (rank == 0) memcpy(map, header.data(), header.size());
+
+		char* pos = map + start;
+		uint32_t buf32;
+
+		buf32 = allNodes.size();	memcpy(pos, &buf32, sizeof(uint32_t));	pos += sizeof(uint32_t);
+		buf32 = RootNodes.size();	memcpy(pos, &buf32, sizeof(uint32_t));	pos += sizeof(uint32_t);
+		for (std::vector<Node*>::iterator it = RootNodes.begin(); it != RootNodes.end(); it++) {
+			memcpy(pos, &(**it).offset, sizeof(uint32_t));	pos += sizeof(uint32_t);
+		}
+		for (std::vector<Node*>::iterator it = allNodes.begin(); it != allNodes.end(); it++) {
+			memcpy(pos, &(**it).DependenciesCnt, sizeof(uint32_t));	pos += sizeof(uint32_t);
+		}
+
+		const FieldDesc* f[FK_NUM_BUILTIN];
+		for (int k = 0; k < FK_NUM_BUILTIN; k++) f[k] = schema.builtin((FieldKind) k);
+
+		std::vector<char> rec(rb + GOALX_PADDING + 1);
+		uint32_t num_in_appendix = 0;
+		for (std::vector<Node*>::iterator it = allNodes.begin(); it != allNodes.end(); it++) {
+			Node& n = **it;
+			uint32_t ndep = n.DependOnMe.size();
+			uint32_t nsdep = n.StartDependOnMe.size();
+
+			std::fill(rec.begin(), rec.end(), 0);
+			encode_field(&rec[0], f[FK_TYPE],  "type",  (uint8_t) n.Type, rank, n.offset);
+			encode_field(&rec[0], f[FK_PEER],  "peer",  n.Peer,           rank, n.offset);
+			encode_field(&rec[0], f[FK_SIZE],  "size",  n.Size,           rank, n.offset);
+			encode_field(&rec[0], f[FK_TAG],   "tag",   n.Tag,            rank, n.offset);
+			encode_field(&rec[0], f[FK_CPU],   "cpu",   n.Proc,           rank, n.offset);
+			encode_field(&rec[0], f[FK_NIC],   "nic",   n.Nic,            rank, n.offset);
+			encode_field(&rec[0], f[FK_NDEP],  "ndep",  ndep,             rank, n.offset);
+			encode_field(&rec[0], f[FK_DEPIX], "depix", num_in_appendix, rank, n.offset);
+			encode_field(&rec[0], f[FK_NSDEP], "nsdep", nsdep,            rank, n.offset);
+			if (f[FK_SDEPIX] != NULL) encode_field(&rec[0], f[FK_SDEPIX], "sdepix", num_in_appendix + ndep, rank, n.offset);
+			for (size_t i = 0; i < schema.fields.size(); i++) {
+				const FieldDesc& c = schema.fields[i];
+				if (c.kind == FK_CUSTOM) encode_field(&rec[0], &c, c.name.c_str(), c.dflt, rank, n.offset);
+			}
+			memcpy(pos, &rec[0], rb);	pos += rb;
+			num_in_appendix += ndep + nsdep;
+		}
+
+		for (std::vector<Node*>::iterator it = allNodes.begin(); it != allNodes.end(); it++) {
+			for (std::vector<Node*>::iterator dit = (**it).DependOnMe.begin(); dit != (**it).DependOnMe.end(); dit++) {
+				memcpy(pos, &(**dit).offset, sizeof(uint32_t));	pos += sizeof(uint32_t);
+			}
+			for (std::vector<Node*>::iterator dit = (**it).StartDependOnMe.begin(); dit != (**it).StartDependOnMe.end(); dit++) {
+				memcpy(pos, &(**dit).offset, sizeof(uint32_t));	pos += sizeof(uint32_t);
+			}
+		}
+		memset(pos, 0, GOALX_PADDING);	pos += GOALX_PADDING;
+		assert((uint64_t) (pos - map) == filesize);
+
+		// the max cpu/nic grow while ranks are appended, so they are rewritten every time
+		memcpy(map + GOALX_OFF_MAX_CPU, &max_cpu, sizeof(uint32_t));
+		memcpy(map + GOALX_OFF_MAX_NIC, &max_nic, sizeof(uint32_t));
+
+		uint64_t jump[2] = { start, filesize };
+		memcpy(map + header_len + sizeof(uint64_t)*2*rank, jump, sizeof(jump));
+
+		int r = munmap(map, filesize);
+		assert(r == 0);
+	}
+
+};
+
+/* decoding information shared by all ranks of one trace, computed once from the schema */
+enum DecoderKind {
+	DECODER_INTERP,         // "interp": the interpreter with get_simple() for the fields that qualify, see NodeLayout::simple_ok
+	DECODER_FIXED,          // "fixed": the original hand-written decoder, constant offsets, legacy files only
+	DECODER_INTERP_GENERIC  // "interp-generic": schema-agnostic, get() for every field, any layout
+};
+
+struct NodeLayout {
+
+	Accessor type, peer, size, tag, cpu, nic, ndep, depix, nsdep, sdepix;
+	uint32_t record_bytes;
+	bool     legacy; // depcnt lives at byte 0 of each record, inside the mapping
+	DecoderKind decoder;
+
+	NodeLayout() : record_bytes(0), legacy(true), decoder(DECODER_INTERP_GENERIC) {}
+
+	NodeLayout(const Schema& s, DecoderKind d) :
+		type(s.builtin(FK_TYPE)), peer(s.builtin(FK_PEER)), size(s.builtin(FK_SIZE)),
+		tag(s.builtin(FK_TAG)), cpu(s.builtin(FK_CPU)), nic(s.builtin(FK_NIC)),
+		ndep(s.builtin(FK_NDEP)), depix(s.builtin(FK_DEPIX)), nsdep(s.builtin(FK_NSDEP)),
+		sdepix(s.builtin(FK_SDEPIX)), record_bytes(s.record_bytes), legacy(s.legacy), decoder(d) {}
+
+	/*
+	 * Whether DECODER_INTERP may be used: the fields it reads with
+	 * get_simple() must be present and must not need a 9th byte. Validation
+	 * already guarantees this for every schema txt2bin writes (peer, tag and
+	 * the edge fields are at most 32 bits); only an unusually wide type field
+	 * could fail it, and then the generic interpreter is used.
+	 */
+	bool simple_ok() const {
+		return type.simple() && peer.simple() && tag.simple() && ndep.simple() && depix.simple() && nsdep.simple();
+	}
+};
+
+/*
+ * One decoder per DecoderKind, all with the same signature: the payload fields
+ * go into N, the edge-list fields into the four counters. Kept as separate
+ * blocks so each can be selected (and benchmarked) on its own.
+ */
+template <DecoderKind K> struct Decoder;
+
+/* the original hand-written decoder: constant offsets into the 39-byte legacy record */
+template <> struct Decoder<DECODER_FIXED> {
+	template <typename T> static GOALX_INLINE T at(const char* rec, size_t off) {
+		T v;
+		memcpy(&v, rec + off, sizeof(T));
+		return v;
+	}
+	static GOALX_INLINE void decode(const NodeLayout&, const char* rec, DeserializedNode& N, uint32_t& num_deps,
+	                                uint32_t& deps_ix, uint32_t& num_startdeps, uint32_t& startdeps_ix) {
+		N.Type = (char) at<uint8_t>(rec, 4); // after depcnt
+		N.Peer = at<uint32_t>(rec, 5);
+		N.Size = at<uint64_t>(rec, 9);
+		N.Tag  = at<uint32_t>(rec, 17);
+		N.Proc = at<uint8_t>(rec, 21);
+		N.Nic  = at<uint8_t>(rec, 22);
+		num_deps      = at<uint32_t>(rec, 23);
+		deps_ix       = at<uint32_t>(rec, 27);
+		num_startdeps = at<uint32_t>(rec, 31);
+		startdeps_ix  = at<uint32_t>(rec, 35);
+	}
+	/* only the "wait for my finish" list: count and start index in the appendix */
+	static GOALX_INLINE void done_edges(const NodeLayout&, const char* rec, uint32_t& n, uint32_t& ix) {
+		n  = at<uint32_t>(rec, 23);
+		ix = at<uint32_t>(rec, 27);
+	}
+	/* only the "wait for my start" list */
+	static GOALX_INLINE void start_edges(const NodeLayout&, const char* rec, uint32_t& n, uint32_t& ix) {
+		n  = at<uint32_t>(rec, 31);
+		ix = at<uint32_t>(rec, 35);
+	}
+};
+
+/* the schema-agnostic interpreter: one precomputed accessor per field the simulator uses */
+template <> struct Decoder<DECODER_INTERP_GENERIC> {
+	static GOALX_INLINE void decode(const NodeLayout& L, const char* rec, DeserializedNode& N, uint32_t& num_deps,
+	                                uint32_t& deps_ix, uint32_t& num_startdeps, uint32_t& startdeps_ix) {
+		N.Type = (char) L.type.get(rec);
+		N.Peer = (uint32_t) L.peer.get(rec);
+		N.Size = L.size.get(rec);
+		N.Tag  = (uint32_t) L.tag.get(rec);
+		N.Proc = (uint8_t) L.cpu.get(rec);
+		N.Nic  = (uint8_t) L.nic.get(rec);
+		num_deps      = (uint32_t) L.ndep.get(rec);
+		deps_ix       = (uint32_t) L.depix.get(rec);
+		num_startdeps = (uint32_t) L.nsdep.get(rec);
+		startdeps_ix  = L.sdepix.present ? (uint32_t) L.sdepix.get(rec) : deps_ix + num_deps;
+	}
+	static GOALX_INLINE void done_edges(const NodeLayout& L, const char* rec, uint32_t& n, uint32_t& ix) {
+		n  = (uint32_t) L.ndep.get(rec);
+		ix = (uint32_t) L.depix.get(rec);
+	}
+	static GOALX_INLINE void start_edges(const NodeLayout& L, const char* rec, uint32_t& n, uint32_t& ix) {
+		n  = (uint32_t) L.nsdep.get(rec);
+		ix = L.sdepix.present ? (uint32_t) L.sdepix.get(rec) : (uint32_t) (L.depix.get(rec) + L.ndep.get(rec));
+	}
+};
+
+/*
+ * The same interpreter, using what validation guarantees: type, peer, tag and
+ * the edge fields are present and fit one 64-bit load, and only peer and tag
+ * can hold ANY. Size (up to 64 bits), cpu, nic (optional) and sdepix
+ * (optional) keep the generic path.
+ */
+template <> struct Decoder<DECODER_INTERP> {
+	static GOALX_INLINE void decode(const NodeLayout& L, const char* rec, DeserializedNode& N, uint32_t& num_deps,
+	                                uint32_t& deps_ix, uint32_t& num_startdeps, uint32_t& startdeps_ix) {
+		N.Type = (char) L.type.get_simple<false>(rec);
+		N.Peer = (uint32_t) L.peer.get_simple<true>(rec);
+		N.Size = L.size.get(rec);
+		N.Tag  = (uint32_t) L.tag.get_simple<true>(rec);
+		N.Proc = (uint8_t) L.cpu.get(rec);
+		N.Nic  = (uint8_t) L.nic.get(rec);
+		num_deps      = (uint32_t) L.ndep.get_simple<false>(rec);
+		deps_ix       = (uint32_t) L.depix.get_simple<false>(rec);
+		num_startdeps = (uint32_t) L.nsdep.get_simple<false>(rec);
+		startdeps_ix  = L.sdepix.present ? (uint32_t) L.sdepix.get(rec) : deps_ix + num_deps;
+	}
+	static GOALX_INLINE void done_edges(const NodeLayout& L, const char* rec, uint32_t& n, uint32_t& ix) {
+		n  = (uint32_t) L.ndep.get_simple<false>(rec);
+		ix = (uint32_t) L.depix.get_simple<false>(rec);
+	}
+	static GOALX_INLINE void start_edges(const NodeLayout& L, const char* rec, uint32_t& n, uint32_t& ix) {
+		n  = (uint32_t) L.nsdep.get_simple<false>(rec);
+		ix = L.sdepix.present ? (uint32_t) L.sdepix.get(rec)
+		                      : (uint32_t) (L.depix.get_simple<false>(rec) + L.ndep.get_simple<false>(rec));
+	}
 };
 
 class SerializedGraph {
 	
 	private:
 	
-	char* mapping_start; // argh. this should be void* but c++ is anal on void*-arithmetic
+	const NodeLayout* layout;
+	const char* roots;
+	char* records;
+	const char* appendix;
 	uint32_t num_root_nodes;
 	uint32_t num_nodes;
-	uint32_t num_ranks_in_schedule;
 	uint32_t my_rank;
 
-	std::vector<DeserializedNode> executableNodes;
+	// GOALX only: the mutable dependency counters, so the trace itself stays read-only
+	std::vector<uint32_t> depcnt;
 
+	// nodes whose dependencies are all satisfied, in the order they became ready; decoded only when handed out
+	std::vector<uint32_t> executableNodes;
 
+	static inline uint32_t load_u32(const char* p) {
+		uint32_t v;
+		memcpy(&v, p, sizeof(v));
+		return v;
+	}
+
+	inline uint32_t* depcnt_ptr(uint32_t offset) {
+		if (layout->legacy) return (uint32_t*) (records + (size_t) layout->record_bytes * offset);
+		return &depcnt[offset];
+	}
+
+	inline void check_offset(uint32_t offset) const {
+		if (offset >= num_nodes) {
+			fprintf(stderr, "[rank %i] got offset %i, have %i nodes\n", my_rank, offset, num_nodes);
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	inline const char* record(uint32_t offset) const {
+		return records + (size_t) layout->record_bytes * offset;
+	}
 
 	void add_root_nodes() {
-	
-		uint32_t num_root_nodes = (uint32_t) *( (uint32_t*) (mapping_start + sizeof(uint32_t)) );
-		
-		for (uint32_t cnt=0; cnt<num_root_nodes; cnt++) {
 
-			 //printf("[timos] trying to get root node number %i\n", cnt);
-			uint32_t offset = (uint32_t) *( (uint32_t*) (mapping_start + sizeof(uint32_t)*2 + cnt*sizeof(uint32_t)) );
-			//printf("[timos] is's offset is %i\n", offset);
-			DeserializedNode N = get_node_by_offset(offset);
-			executableNodes.push_back(N);
+		for (uint32_t cnt=0; cnt<num_root_nodes; cnt++) {
+			uint32_t offset = load_u32(roots + cnt*sizeof(uint32_t));
+			check_offset(offset);
+			executableNodes.push_back(offset);
 		}
 
 	}
 
+	/* decodes the payload and edge-list fields of one record; the branch is constant for a run */
+	inline void decode_record(const char* rec, DeserializedNode& N, uint32_t& num_deps, uint32_t& deps_ix,
+	                          uint32_t& num_startdeps, uint32_t& startdeps_ix) const {
+
+		switch (layout->decoder) {
+			case DECODER_FIXED:  Decoder<DECODER_FIXED>::decode(*layout, rec, N, num_deps, deps_ix, num_startdeps, startdeps_ix); break;
+			case DECODER_INTERP: Decoder<DECODER_INTERP>::decode(*layout, rec, N, num_deps, deps_ix, num_startdeps, startdeps_ix); break;
+			default:             Decoder<DECODER_INTERP_GENERIC>::decode(*layout, rec, N, num_deps, deps_ix, num_startdeps, startdeps_ix); break;
+		}
+	}
+
+	/* the decode-only benchmark loop for one decoder, with the layout in a local copy */
+	template <DecoderKind K>
+	uint64_t decode_all() const {
+		const NodeLayout L = *layout;
+		const size_t rb = L.record_bytes;
+		const char* rec = records;
+		uint64_t sum = 0;
+		DeserializedNode N;
+		uint32_t ndep, depix, nsdep, sdepix;
+		for (uint32_t i = 0; i < num_nodes; i++, rec += rb) {
+			Decoder<K>::decode(L, rec, N, ndep, depix, nsdep, sdepix);
+			sum += (uint64_t) (uint8_t) N.Type + N.Peer + N.Size + N.Tag + N.Proc + N.Nic + ndep + depix + nsdep + sdepix;
+		}
+		return sum;
+	}
+
 	DeserializedNode get_node_by_offset(uint32_t offset) {
 	
-		//printf("[timos] trying to get node with offset %i\n", offset);
-	
-		uint32_t num_nodes = (uint32_t) *((uint32_t*) mapping_start);
-
-		if (offset > num_nodes) {
+		if (offset >= num_nodes) {
 			fprintf(stderr, "[rank %i] got offset %i, have %i nodes\n", my_rank, offset, num_nodes);
 			exit(EXIT_FAILURE);
 		}
-		// printf("yyy 1\n");
-		int SIZEOF_NODE_INFO = sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*7 + sizeof(uint8_t)*2;
-		char* start_of_node = mapping_start + sizeof(uint32_t)*2 + sizeof(uint32_t)*num_root_nodes + SIZEOF_NODE_INFO*offset;
+
+		const char* rec = records + (size_t) layout->record_bytes * offset;
 		DeserializedNode N;
-		// printf("yyy 2\n");
+		uint32_t num_deps, deps_startoffset_in_apdx, num_startdeps, startdeps_startoffset_in_apdx;
 
-		N.DependenciesCnt = (uint32_t) *( (uint32_t*) start_of_node);
-		N.Type = (char) *(start_of_node + sizeof(uint32_t)); // after depcnt
-		N.Peer = (uint32_t) *( (uint32_t*) (start_of_node + sizeof(uint32_t) + sizeof(char)) ); // after depcnt + type
-		N.Size = (uint64_t) *( (uint64_t*) (start_of_node + sizeof(uint32_t) + sizeof(char) + sizeof(uint32_t)));
-		N.Tag = (uint32_t) *( (uint32_t*) (start_of_node + sizeof(uint32_t) + sizeof(char) + sizeof(uint32_t) + sizeof(uint64_t)));
-		N.Proc = (uint8_t) *( (uint8_t*) (start_of_node + sizeof(uint32_t) + sizeof(char) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(uint32_t)));
-		N.Nic = (uint8_t) *( (uint8_t*) (start_of_node + sizeof(uint32_t) + sizeof(char) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(uint32_t) + sizeof(uint8_t)));
-		N.offset = (uint32_t) offset;
-		uint32_t num_deps =                      (uint32_t) *( (uint32_t*) (start_of_node + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*3 + sizeof(uint8_t)*2));
-		uint32_t deps_startoffset_in_apdx =      (uint32_t) *( (uint32_t*) (start_of_node + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*4 + sizeof(uint8_t)*2));
-		uint32_t num_startdeps =                 (uint32_t) *( (uint32_t*) (start_of_node + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*5 + sizeof(uint8_t)*2));
-		uint32_t startdeps_startoffset_in_apdx = (uint32_t) *( (uint32_t*) (start_of_node + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*6 + sizeof(uint8_t)*2));
-		// printf("yyy 3\n");
-		// printf("yyy 3 start of apdx = mapping start + %i\n", sizeof(uint32_t)*2 + sizeof(uint32_t)*num_root_nodes + SIZEOF_NODE_INFO*num_nodes);
-		// printf("yyy 3 numrootnodes = %i, SIZEOFNODEINFO = %i, num_nodes = %i\n", num_root_nodes, SIZEOF_NODE_INFO, num_nodes);
-		char* start_of_apdx = mapping_start + sizeof(uint32_t)*2 + sizeof(uint32_t)*num_root_nodes + SIZEOF_NODE_INFO*num_nodes;
+		N.DependenciesCnt = *depcnt_ptr(offset);
+		N.offset = offset;
+		decode_record(rec, N, num_deps, deps_startoffset_in_apdx, num_startdeps, startdeps_startoffset_in_apdx);
+
 		for (uint32_t cnt=0; cnt<num_deps; cnt++) {
-			// printf("yyy 3.5 (%i, %i)\n", num_deps, cnt);
-			// printf("yyy (start of appendix: %i, deps startoffset in apdx %i, cnt %i)\n", start_of_apdx, deps_startoffset_in_apdx, cnt);
-			uint32_t depnode = (uint32_t) *( (uint32_t*) (start_of_apdx + (deps_startoffset_in_apdx + cnt)*sizeof(uint32_t)));
-			
-			//printf("num_root_nodes: %u\n", num_root_nodes);
-			//printf("SIZEOF_NODE_INFO: %i\n", SIZEOF_NODE_INFO);
-			//printf("num_nodes: %u\n", num_nodes);
-			//printf("start of appdx: %lu bytes after mapping_start\n", sizeof(uint32_t)*2 + sizeof(uint32_t)*num_root_nodes + SIZEOF_NODE_INFO*num_nodes );
-
+			uint32_t depnode = load_u32(appendix + (size_t) (deps_startoffset_in_apdx + cnt)*sizeof(uint32_t));
 			assert(depnode < num_nodes);
-			
 			N.DependOnMe.push_back(depnode);
-			// printf("yyy 3.75\n");
 		}
-		// printf("yyy 4\n");
 		for (uint32_t cnt=0; cnt<num_startdeps; cnt++) {
-			N.StartDependOnMe.push_back((uint32_t) *( (uint32_t*) (start_of_apdx + (startdeps_startoffset_in_apdx + cnt)*sizeof(uint32_t))));
+			N.StartDependOnMe.push_back(load_u32(appendix + (size_t) (startdeps_startoffset_in_apdx + cnt)*sizeof(uint32_t)));
 		}
-		// printf("yyy 5\n");
 			
 		return N;
+	}
+
+	/*
+	 * Walks n dependents in the appendix, starting at index ix, in place: each
+	 * one's counter is decremented, and nodes that reach 0 become executable.
+	 */
+	inline void release(uint32_t n, uint32_t ix) {
+		const char* p = appendix + (size_t) ix*sizeof(uint32_t);
+		for (uint32_t cnt=0; cnt<n; cnt++) {
+			uint32_t offset = load_u32(p + (size_t) cnt*sizeof(uint32_t));
+			check_offset(offset);
+			uint32_t* dep_cnt = depcnt_ptr(offset);
+			(*dep_cnt)--;
+			if ((*dep_cnt) == 0) {
+				executableNodes.push_back(offset);
+			}
+		}
+	}
+
+	/* reads only one dependents list of a record: the "wait for my start" one or the "wait for my finish" one */
+	inline void edges(uint32_t offset, bool start, uint32_t& n, uint32_t& ix) const {
+		check_offset(offset);
+		const char* rec = record(offset);
+		switch (layout->decoder) {
+			case DECODER_FIXED:
+				if (start) Decoder<DECODER_FIXED>::start_edges(*layout, rec, n, ix);
+				else Decoder<DECODER_FIXED>::done_edges(*layout, rec, n, ix);
+				break;
+			case DECODER_INTERP:
+				if (start) Decoder<DECODER_INTERP>::start_edges(*layout, rec, n, ix);
+				else Decoder<DECODER_INTERP>::done_edges(*layout, rec, n, ix);
+				break;
+			default:
+				if (start) Decoder<DECODER_INTERP_GENERIC>::start_edges(*layout, rec, n, ix);
+				else Decoder<DECODER_INTERP_GENERIC>::done_edges(*layout, rec, n, ix);
+				break;
+		}
 	}
 
 	public:
 
 	uint32_t GetNumNodes() {
 		return this->num_nodes;		
+	}
+
+	/* decodes every record of this rank, for measuring decoder throughput; the checksum compares decoders */
+	uint64_t DecodeAll() const {
+		// the decoder is chosen once, outside the loop
+		switch (layout->decoder) {
+			case DECODER_FIXED:         return decode_all<DECODER_FIXED>();
+			case DECODER_INTERP:        return decode_all<DECODER_INTERP>();
+			default:                    return decode_all<DECODER_INTERP_GENERIC>();
+		}
 	}
 
 	void write_as_dot(char *filename) {
@@ -562,132 +896,91 @@ class SerializedGraph {
 
 	}
 
-	SerializedGraph(char* map_start, size_t map_length, uint32_t rank) {
+	/* block points at this rank's block (num_nodes), map_end is the end of the mapping */
+	SerializedGraph(char* block, const char* map_end, const NodeLayout* node_layout, uint32_t rank) {
 
-		 //printf("[timos] Creating graph for rank %i\n", rank);
-		
-		mapping_start = map_start;
+		layout = node_layout;
 		my_rank = rank;
-		
-		uint64_t ssched;
 
-		//printf("xxx 1\n");	
-		num_ranks_in_schedule = *( ((uint32_t*) mapping_start) );
+		num_nodes = load_u32(block);
+		num_root_nodes = load_u32(block + sizeof(uint32_t));
+		roots = block + sizeof(uint32_t)*2;
 
-		 //printf("xxx 2\n");	
-		char* tmp = mapping_start + sizeof(uint32_t) + sizeof(uint8_t)*2 + sizeof(uint64_t)*2*rank;
-		ssched = *( (uint64_t*) tmp); // jumping over num_schedules + max_cpu/max_nic + jumptable 
+		const char* depcnt_init = roots + (size_t) sizeof(uint32_t)*num_root_nodes;
+		if (layout->legacy) records = (char*) depcnt_init;
+		else records = (char*) depcnt_init + (size_t) sizeof(uint32_t)*num_nodes;
+		appendix = records + (size_t) layout->record_bytes*num_nodes;
 
-		 //printf("xxx 3\n");	
-		//printf("ssched = %i\n", ssched);
-		
-		mapping_start += ssched;
+		if (appendix > map_end) {
+			fprintf(stderr, "Error: rank %u claims %u nodes, but the trace ends before them\n", rank, num_nodes);
+			exit(EXIT_FAILURE);
+		}
+		if (!layout->legacy) {
+			depcnt.resize(num_nodes);
+			if (num_nodes > 0) memcpy(&depcnt[0], depcnt_init, sizeof(uint32_t)*num_nodes);
+		}
+
 		executableNodes.clear();
-
-		 //printf("xxx 4\n");	
-		num_nodes = *((uint32_t*) mapping_start);
-		//printf("rank %u: %u nodes\n", rank, num_nodes);
-		//printf("num-nodes: %i\n", num_nodes);
-		 //printf("xxx 5\n");	
-		num_root_nodes = *((uint32_t*) (mapping_start+sizeof(uint32_t)));
-		//printf("num-root-nodes: %i\n", num_root_nodes);
-		 //printf("xxx 6\n");	
 		add_root_nodes();
-		 //printf("xxx 7\n");	
-
 	}
 
+	/* the _DSN variants (used by write_as_dot) still build full DeserializedNodes with their lists */
 	void MarkNodeAsStarted_DSN(DeserializedNode node) {
+		MarkNodeAsStarted(node.offset);
+	}
 
-		DeserializedNode N = get_node_by_offset(node.offset);
-		for (uint32_t cnt=0; cnt<N.StartDependOnMe.size(); cnt++) {
-			uint32_t offset = N.StartDependOnMe[cnt];
-	
-			int SIZEOF_NODE_INFO = sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*7 + sizeof(uint8_t)*2;
-			uint32_t* dep_cnt = (uint32_t*) (mapping_start + sizeof(uint32_t)*2 + sizeof(uint32_t)*num_root_nodes + SIZEOF_NODE_INFO*offset);
-			(*dep_cnt)--;
-			if ((*dep_cnt) == 0) {
-				executableNodes.push_back(get_node_by_offset(offset));
-			}
-		}
-	}
-		
 	void MarkNodeAsDone_DSN(DeserializedNode node) {
-		
-		DeserializedNode N = get_node_by_offset(node.offset);
-		for (uint32_t cnt=0; cnt<N.DependOnMe.size(); cnt++) {
-			uint32_t offset = N.DependOnMe[cnt];
-	
-			int SIZEOF_NODE_INFO = sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*7 + sizeof(uint8_t)*2;
-			uint32_t* dep_cnt = (uint32_t*) (mapping_start + sizeof(uint32_t)*2 + sizeof(uint32_t)*num_root_nodes + SIZEOF_NODE_INFO*offset);
-			(*dep_cnt)--;
-			if ((*dep_cnt) == 0) {
-				executableNodes.push_back(get_node_by_offset(offset));
-			}
-		}
+		MarkNodeAsDone(node.offset);
 	}
-	
-	std::vector<DeserializedNode> GetExecutableNodes_DSN() { 
-				
+
+	std::vector<DeserializedNode> GetExecutableNodes_DSN() {
+
 		std::vector<DeserializedNode> ret;
 
-		for (uint32_t cnt=0; cnt<executableNodes.size(); cnt++) {	
-			ret.push_back(executableNodes[cnt]);
+		for (uint32_t cnt=0; cnt<executableNodes.size(); cnt++) {
+			ret.push_back(get_node_by_offset(executableNodes[cnt]));
 		}
 		executableNodes.clear();
 		return ret;
 	}
 
   typedef std::vector<graph_node_properties> nodelist_t;
+	/* hands out the executable nodes; each is decoded here, once, straight into the simulator's struct */
 	void GetExecutableNodes(nodelist_t *ret_ptr) {
 		nodelist_t& ret = *ret_ptr;
+		DeserializedNode N; // payload only: its lists stay empty
+		uint32_t num_deps, deps_ix, num_startdeps, startdeps_ix;
 
-		for (uint32_t cnt=0; cnt<executableNodes.size(); cnt++) {	
+		for (uint32_t cnt=0; cnt<executableNodes.size(); cnt++) {
+			uint32_t offset = executableNodes[cnt];
+			decode_record(record(offset), N, num_deps, deps_ix, num_startdeps, startdeps_ix);
 			graph_node_properties gp;
-			gp.target = executableNodes[cnt].Peer;
-			gp.size = executableNodes[cnt].Size;
-			gp.tag = executableNodes[cnt].Tag;
-			gp.proc = executableNodes[cnt].Proc;
-			gp.nic = executableNodes[cnt].Nic;
-			if (executableNodes[cnt].Type == OPTYPE_SEND) gp.type = OP_SEND;
-			else if (executableNodes[cnt].Type == OPTYPE_RECV) gp.type = OP_RECV;
-			else if (executableNodes[cnt].Type == OPTYPE_CALC) gp.type = OP_LOCOP;
-			gp.offset = executableNodes[cnt].offset;
+			gp.target = N.Peer;
+			gp.size = N.Size;
+			gp.tag = N.Tag;
+			gp.proc = N.Proc;
+			gp.nic = N.Nic;
+			if (N.Type == OPTYPE_SEND) gp.type = OP_SEND;
+			else if (N.Type == OPTYPE_RECV) gp.type = OP_RECV;
+			else if (N.Type == OPTYPE_CALC) gp.type = OP_LOCOP;
+			gp.offset = offset;
 			ret.push_back(gp);
 		}
 		executableNodes.clear();
 	}
 
+	/* only the record's "wait for my start" list is read, walked in place in the appendix */
 	void MarkNodeAsStarted(uint32_t offset) {
-
-		DeserializedNode N = get_node_by_offset(offset);
-		for (uint32_t cnt=0; cnt<N.StartDependOnMe.size(); cnt++) {
-			uint32_t offset = N.StartDependOnMe[cnt];
-			assert(offset < num_nodes);
-	
-			int SIZEOF_NODE_INFO = sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*7 + sizeof(uint8_t)*2;
-			uint32_t* dep_cnt = (uint32_t*) (mapping_start + sizeof(uint32_t)*2 + sizeof(uint32_t)*num_root_nodes + SIZEOF_NODE_INFO*offset);
-			(*dep_cnt)--;
-			if ((*dep_cnt) == 0) {
-				executableNodes.push_back(get_node_by_offset(offset));
-			}
-		}
+		uint32_t n, ix;
+		edges(offset, true, n, ix);
+		release(n, ix);
 	}
-		
+
+	/* only the record's "wait for my finish" list is read */
 	void MarkNodeAsDone(uint32_t offset) {
-		
-		DeserializedNode N = get_node_by_offset(offset);
-		for (uint32_t cnt=0; cnt<N.DependOnMe.size(); cnt++) {
-			uint32_t offset = N.DependOnMe[cnt];
-			
-			int SIZEOF_NODE_INFO = sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t)*7 + sizeof(uint8_t)*2;
-			uint32_t* dep_cnt = (uint32_t*) (mapping_start + sizeof(uint32_t)*2 + sizeof(uint32_t)*num_root_nodes + SIZEOF_NODE_INFO*offset);
-			(*dep_cnt)--;
-			
-			if ((*dep_cnt) == 0) {
-				executableNodes.push_back(get_node_by_offset(offset));
-			}
-		}
+		uint32_t n, ix;
+		edges(offset, false, n, ix);
+		release(n, ix);
 	}
 
 };
@@ -699,9 +992,11 @@ class Parser {
 	char* mapping_start; // argh. this should be void* but c++ is anal on void*-arithmetic
 	size_t mapping_length;
 	uint32_t num_ranks_in_schedule;
-	uint8_t max_cpu;
-	uint8_t max_nic;
+	uint32_t max_cpu;
+	uint32_t max_nic;
 	FILE *schedules_fd;
+	Schema schema;
+	NodeLayout layout;
 
 	uint64_t get_file_size(FILE* fd) {
 		
@@ -711,14 +1006,95 @@ class Parser {
 		return f_info.st_size;
 	}
 
+	static void fail(const char* filename, const std::string& msg) {
+		fprintf(stderr, "Error: trace '%s': %s\n", filename, msg.c_str());
+		exit(EXIT_FAILURE);
+	}
+
+	void open_legacy(bool save_mem) {
+
+		uint8_t max_cpu8, max_nic8;
+
+		fread(&num_ranks_in_schedule, sizeof(uint32_t), 1, schedules_fd);
+		fread(&max_cpu8, sizeof(uint8_t), 1, schedules_fd);
+		fread(&max_nic8, sizeof(uint8_t), 1, schedules_fd);
+		max_cpu = max_cpu8;
+		max_nic = max_nic8;
+
+		if (save_mem == true) {
+			// mmap can fail with map_private and prot_write on machines where the virtual mem is smaller than
+			// the mapped region - so we fall back to map_shared. This destroys the schedule, so we invalidate
+			// the magic cookie if we do this
+			mapping_start = (char*) mmap(NULL, mapping_length, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(schedules_fd), 0); 
+			if (mapping_start != MAP_FAILED) *((uint64_t*) mapping_start) = MAGIC_COOKIE_INVALID;
+			printf("The schedule will be invalid after this simulation!\n");
+		}
+		
+		else if (save_mem == false) {
+			mapping_start = (char*) mmap(NULL, mapping_length, PROT_READ | PROT_WRITE, MAP_PRIVATE, fileno(schedules_fd), 0);
+			// THIS NEEDS MORE MEMORY - but it is also more convinient for interacrive use
+			// because it preserves the schedules
+			// Note that there is no fall-through to MAP_SHARED, we put the user in charge now!
+		}
+		
+		if (mapping_start == MAP_FAILED) {
+			fprintf(stderr, "mmap does not work on your system! Try to use the --save-mem option.\n");
+			exit(EXIT_FAILURE);
+		}
+
+		schema = Schema::legacy_layout();
+	}
+
+	void open_goalx(const char* filename, bool save_mem) {
+
+		std::string err;
+		uint32_t header_len;
+
+		if (save_mem) printf("--save-mem has no effect on GOALX traces, they are mapped read-only.\n");
+
+		// the trace is never written: dependency counters live in a separate array
+		mapping_start = (char*) mmap(NULL, mapping_length, PROT_READ, MAP_SHARED, fileno(schedules_fd), 0);
+		if (mapping_start == MAP_FAILED) {
+			perror("couldn't mmap the trace");
+			exit(EXIT_FAILURE);
+		}
+		if (!Schema::parse_header(mapping_start, mapping_length, &schema, &num_ranks_in_schedule,
+		                          &max_cpu, &max_nic, &header_len, &err)) {
+			fail(filename, err);
+		}
+		if (header_len + sizeof(uint64_t)*2*(uint64_t) num_ranks_in_schedule > mapping_length) {
+			fail(filename, "jump table extends past the end of the file");
+		}
+	}
+
+	/* returns the start of a rank block, checked against the file size */
+	char* rank_block(const char* filename, uint32_t rank) {
+		uint64_t jump[2];
+		if (schema.legacy) {
+			// legacy jump-table offsets are relative to the byte after the magic cookie
+			char* base = mapping_start + sizeof(uint64_t);
+			memcpy(jump, base + sizeof(uint32_t) + sizeof(uint8_t)*2 + sizeof(uint64_t)*2*rank, sizeof(jump));
+			return base + jump[0];
+		}
+		uint32_t header_len;
+		memcpy(&header_len, mapping_start + 12, sizeof(header_len));
+		memcpy(jump, mapping_start + header_len + sizeof(uint64_t)*2*rank, sizeof(jump));
+		if (jump[0] > jump[1] || jump[1] > mapping_length || jump[1] - jump[0] < sizeof(uint32_t)*2) {
+			fail(filename, "jump table entry of rank " + std::to_string(rank) + " is out of range");
+		}
+		return mapping_start + jump[0];
+	}
+
 	public:
 	
   typedef std::vector<SerializedGraph> schedules_t ;
 	schedules_t schedules;
 
-	Parser(char* filename, bool save_mem) {
+	/* require_spec lists extra fields the simulation needs, e.g. "gpu_id:6" */
+	/* decoder_name is "auto" (fixed for legacy files, interp for GOALX), "interp" or "fixed" */
+	Parser(char* filename, bool save_mem, const char* require_spec = NULL, const char* decoder_name = "auto") {
 		
-		schedules_fd = fopen(filename, "r+");
+		schedules_fd = fopen(filename, save_mem ? "r+" : "r");
 	    
 		if (schedules_fd == NULL) {
 			fprintf(stderr, "Couldn't open input file %s!\n", filename);
@@ -734,49 +1110,56 @@ class Parser {
 			fprintf(stderr, "This is serialized goal schedule was invalidated by a prior simulation run!\n");
 			exit(EXIT_FAILURE);
 		}	
-		if (magic_cookie != MAGIC_COOKIE) {
+		if (magic_cookie == GOALX_MAGIC) {
+			open_goalx(filename, save_mem);
+		} else if (magic_cookie == MAGIC_COOKIE) {
+			open_legacy(save_mem);
+		} else {
 			fprintf(stderr, "This is not a serialized goal schedule - the magic cookie is missing\n");
 			exit(EXIT_FAILURE);
 		}
-		
-		fread(&num_ranks_in_schedule, sizeof(uint32_t), 1, schedules_fd);
-		fread(&max_cpu, sizeof(uint8_t), 1, schedules_fd);
-		fread(&max_nic, sizeof(uint8_t), 1, schedules_fd);
 
-		if (save_mem == true) {
-			// mmap can fail with map_private and prot_write on machines where the virtual mem is smaller than
-			// the mapped region - so we fall back to map_shared. This destroys the schedule, so we invalidate
-			// the magic cookie if we do this
-			mapping_start = (char*) mmap(NULL, mapping_length, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(schedules_fd), 0); 
-			*((uint64_t*) mapping_start) = MAGIC_COOKIE_INVALID;
-			printf("The schedule will be invalid after this simulation!\n");
+		std::string err;
+		std::vector<Requirement> extra;
+		if (!parse_requirements(require_spec, &extra, &err)) fail(filename, err);
+		if (!validate_schema(schema, extra, num_ranks_in_schedule, max_cpu, max_nic, &err)) fail(filename, err);
+
+		DecoderKind decoder = schema.legacy ? DECODER_FIXED : DECODER_INTERP;
+		if (decoder_name != NULL && strcmp(decoder_name, "interp") == 0) decoder = DECODER_INTERP;
+		if (decoder_name != NULL && strcmp(decoder_name, "interp-generic") == 0) decoder = DECODER_INTERP_GENERIC;
+		if (decoder_name != NULL && strcmp(decoder_name, "fixed") == 0) {
+			if (!schema.legacy) fail(filename, "the fixed decoder only reads legacy (4223) traces");
+			decoder = DECODER_FIXED;
 		}
-		
-		else if (save_mem == false) {
-			mapping_start = (char*) mmap(NULL, mapping_length, PROT_READ | PROT_WRITE, MAP_PRIVATE, fileno(schedules_fd), 0);
-			// THIS NEEDS MORE MEMORY - but it is also more convinient for interacrive use
-			// because it preserves the schedules
-			// Note that there is no fall-through to MAP_SHARED, we put the user in charge now!
-		}
-		
-		if (mapping_start == MAP_FAILED) {
-			fprintf(stderr, "mmap does not work on your system! Try to use the --save-mem option.\n");
-			exit(EXIT_FAILURE);
-		}
-		
+
+		layout = NodeLayout(schema, decoder);
+		// the interpreter's fast path needs simple fields; otherwise fall back to the generic one
+		if (decoder == DECODER_INTERP && !layout.simple_ok()) layout.decoder = DECODER_INTERP_GENERIC;
+		schedules.reserve(num_ranks_in_schedule);
 		for (uint32_t cnt=0; cnt<num_ranks_in_schedule; cnt++) {
-			schedules.push_back(SerializedGraph(mapping_start+sizeof(uint64_t), mapping_length-sizeof(uint64_t), cnt));
+			schedules.emplace_back(rank_block(filename, cnt), mapping_start + mapping_length, &layout, cnt);
 		}
 	}
 
-	uint8_t GetNumCPU() {
+	int GetNumCPU() {
 		return max_cpu+1;
 	}
 
-	uint8_t GetNumNIC() {
+	int GetNumNIC() {
 		return max_nic+1;
 	}
 
+	const char* GetDecoderName() {
+		switch (layout.decoder) {
+			case DECODER_FIXED:         return "fixed";
+			case DECODER_INTERP:        return "interp";
+			default:                    return "interp-generic";
+		}
+	}
+
+	void PrintSchema(FILE* fd) {
+		schema.print(fd, num_ranks_in_schedule, max_cpu, max_nic);
+	}
 
 	~Parser() {
 		int r = munmap(mapping_start, mapping_length);
@@ -785,4 +1168,3 @@ class Parser {
 	}
 	
 };
-
