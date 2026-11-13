@@ -62,12 +62,23 @@ typedef unsigned int uint;
 typedef unsigned long int ulint;
 typedef unsigned long long int ullint;
 
+/*
+ * match() runs for every message. With plain "inline", GCC stopped inlining it
+ * into main() once main() grew, which made matching-heavy traces (ring) ~18%
+ * slower. Forcing it keeps matching speed independent of main()'s size.
+ */
+#if defined(__GNUC__)
+#define MATCH_INLINE inline __attribute__((always_inline))
+#else
+#define MATCH_INLINE inline
+#endif
+
 #ifdef LIST_MATCH
 // TODO this is really slow - reconsider design of rq and uq!
 // matches and removes element from list if found, otherwise returns
 // false
 typedef std::list<ruqelem_t> ruq_t;
-static inline int match(const graph_node_properties &elem, ruq_t *q, ruqelem_t *retelem=NULL) {
+static MATCH_INLINE int match(const graph_node_properties &elem, ruq_t *q, ruqelem_t *retelem=NULL) {
 
   // MATCH attempts (i.e., number of elements searched to find a matching element)
   int match_attempts = 0;
@@ -95,7 +106,7 @@ class myhash { // I WANT LAMBDAS! :)
   }
 };
 typedef std::hash_map< std::pair</*tag*/int,int/*src*/>, std::queue<ruqelem_t>, myhash > ruq_t;
-static inline int match(const graph_node_properties &elem, ruq_t *q, ruqelem_t *retelem=NULL) {
+static MATCH_INLINE int match(const graph_node_properties &elem, ruq_t *q, ruqelem_t *retelem=NULL) {
   
   if(print) printf("++ [%i] searching matching queue for src %i tag %i\n", elem.host, elem.target, elem.tag);
 
