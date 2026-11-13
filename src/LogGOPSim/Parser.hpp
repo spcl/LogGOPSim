@@ -623,6 +623,16 @@ template <> struct Decoder<DECODER_FIXED> {
 		num_startdeps = at<uint32_t>(rec, 31);
 		startdeps_ix  = at<uint32_t>(rec, 35);
 	}
+	/* only the "wait for my finish" list: count and start index in the appendix */
+	static GOALX_INLINE void done_edges(const NodeLayout&, const char* rec, uint32_t& n, uint32_t& ix) {
+		n  = at<uint32_t>(rec, 23);
+		ix = at<uint32_t>(rec, 27);
+	}
+	/* only the "wait for my start" list */
+	static GOALX_INLINE void start_edges(const NodeLayout&, const char* rec, uint32_t& n, uint32_t& ix) {
+		n  = at<uint32_t>(rec, 31);
+		ix = at<uint32_t>(rec, 35);
+	}
 };
 
 /* the schema-agnostic interpreter: one precomputed accessor per field the simulator uses */
@@ -639,6 +649,14 @@ template <> struct Decoder<DECODER_INTERP_GENERIC> {
 		deps_ix       = (uint32_t) L.depix.get(rec);
 		num_startdeps = (uint32_t) L.nsdep.get(rec);
 		startdeps_ix  = L.sdepix.present ? (uint32_t) L.sdepix.get(rec) : deps_ix + num_deps;
+	}
+	static GOALX_INLINE void done_edges(const NodeLayout& L, const char* rec, uint32_t& n, uint32_t& ix) {
+		n  = (uint32_t) L.ndep.get(rec);
+		ix = (uint32_t) L.depix.get(rec);
+	}
+	static GOALX_INLINE void start_edges(const NodeLayout& L, const char* rec, uint32_t& n, uint32_t& ix) {
+		n  = (uint32_t) L.nsdep.get(rec);
+		ix = L.sdepix.present ? (uint32_t) L.sdepix.get(rec) : (uint32_t) (L.depix.get(rec) + L.ndep.get(rec));
 	}
 };
 
@@ -662,6 +680,15 @@ template <> struct Decoder<DECODER_INTERP> {
 		num_startdeps = (uint32_t) L.nsdep.get_simple<false>(rec);
 		startdeps_ix  = L.sdepix.present ? (uint32_t) L.sdepix.get(rec) : deps_ix + num_deps;
 	}
+	static GOALX_INLINE void done_edges(const NodeLayout& L, const char* rec, uint32_t& n, uint32_t& ix) {
+		n  = (uint32_t) L.ndep.get_simple<false>(rec);
+		ix = (uint32_t) L.depix.get_simple<false>(rec);
+	}
+	static GOALX_INLINE void start_edges(const NodeLayout& L, const char* rec, uint32_t& n, uint32_t& ix) {
+		n  = (uint32_t) L.nsdep.get_simple<false>(rec);
+		ix = L.sdepix.present ? (uint32_t) L.sdepix.get(rec)
+		                      : (uint32_t) (L.depix.get_simple<false>(rec) + L.ndep.get_simple<false>(rec));
+	}
 };
 
 class SerializedGraph {
@@ -679,7 +706,8 @@ class SerializedGraph {
 	// GOALX only: the mutable dependency counters, so the trace itself stays read-only
 	std::vector<uint32_t> depcnt;
 
-	std::vector<DeserializedNode> executableNodes;
+	// nodes whose dependencies are all satisfied, in the order they became ready; decoded only when handed out
+	std::vector<uint32_t> executableNodes;
 
 	static inline uint32_t load_u32(const char* p) {
 		uint32_t v;
@@ -692,11 +720,23 @@ class SerializedGraph {
 		return &depcnt[offset];
 	}
 
+	inline void check_offset(uint32_t offset) const {
+		if (offset >= num_nodes) {
+			fprintf(stderr, "[rank %i] got offset %i, have %i nodes\n", my_rank, offset, num_nodes);
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	inline const char* record(uint32_t offset) const {
+		return records + (size_t) layout->record_bytes * offset;
+	}
+
 	void add_root_nodes() {
-	
+
 		for (uint32_t cnt=0; cnt<num_root_nodes; cnt++) {
-			DeserializedNode N = get_node_by_offset(load_u32(roots + cnt*sizeof(uint32_t)));
-			executableNodes.push_back(N);
+			uint32_t offset = load_u32(roots + cnt*sizeof(uint32_t));
+			check_offset(offset);
+			executableNodes.push_back(offset);
 		}
 
 	}
@@ -755,16 +795,40 @@ class SerializedGraph {
 		return N;
 	}
 
-	/* decrements the counters of the given dependents, nodes that reach 0 become executable */
-	void release(const std::vector<uint32_t>& dependents) {
-		for (uint32_t cnt=0; cnt<dependents.size(); cnt++) {
-			uint32_t offset = dependents[cnt];
-			assert(offset < num_nodes);
+	/*
+	 * Walks n dependents in the appendix, starting at index ix, in place: each
+	 * one's counter is decremented, and nodes that reach 0 become executable.
+	 */
+	inline void release(uint32_t n, uint32_t ix) {
+		const char* p = appendix + (size_t) ix*sizeof(uint32_t);
+		for (uint32_t cnt=0; cnt<n; cnt++) {
+			uint32_t offset = load_u32(p + (size_t) cnt*sizeof(uint32_t));
+			check_offset(offset);
 			uint32_t* dep_cnt = depcnt_ptr(offset);
 			(*dep_cnt)--;
 			if ((*dep_cnt) == 0) {
-				executableNodes.push_back(get_node_by_offset(offset));
+				executableNodes.push_back(offset);
 			}
+		}
+	}
+
+	/* reads only one dependents list of a record: the "wait for my start" one or the "wait for my finish" one */
+	inline void edges(uint32_t offset, bool start, uint32_t& n, uint32_t& ix) const {
+		check_offset(offset);
+		const char* rec = record(offset);
+		switch (layout->decoder) {
+			case DECODER_FIXED:
+				if (start) Decoder<DECODER_FIXED>::start_edges(*layout, rec, n, ix);
+				else Decoder<DECODER_FIXED>::done_edges(*layout, rec, n, ix);
+				break;
+			case DECODER_INTERP:
+				if (start) Decoder<DECODER_INTERP>::start_edges(*layout, rec, n, ix);
+				else Decoder<DECODER_INTERP>::done_edges(*layout, rec, n, ix);
+				break;
+			default:
+				if (start) Decoder<DECODER_INTERP_GENERIC>::start_edges(*layout, rec, n, ix);
+				else Decoder<DECODER_INTERP_GENERIC>::done_edges(*layout, rec, n, ix);
+				break;
 		}
 	}
 
@@ -860,51 +924,63 @@ class SerializedGraph {
 		add_root_nodes();
 	}
 
+	/* the _DSN variants (used by write_as_dot) still build full DeserializedNodes with their lists */
 	void MarkNodeAsStarted_DSN(DeserializedNode node) {
-		release(get_node_by_offset(node.offset).StartDependOnMe);
+		MarkNodeAsStarted(node.offset);
 	}
-		
+
 	void MarkNodeAsDone_DSN(DeserializedNode node) {
-		release(get_node_by_offset(node.offset).DependOnMe);
+		MarkNodeAsDone(node.offset);
 	}
-	
-	std::vector<DeserializedNode> GetExecutableNodes_DSN() { 
-				
+
+	std::vector<DeserializedNode> GetExecutableNodes_DSN() {
+
 		std::vector<DeserializedNode> ret;
 
-		for (uint32_t cnt=0; cnt<executableNodes.size(); cnt++) {	
-			ret.push_back(executableNodes[cnt]);
+		for (uint32_t cnt=0; cnt<executableNodes.size(); cnt++) {
+			ret.push_back(get_node_by_offset(executableNodes[cnt]));
 		}
 		executableNodes.clear();
 		return ret;
 	}
 
   typedef std::vector<graph_node_properties> nodelist_t;
+	/* hands out the executable nodes; each is decoded here, once, straight into the simulator's struct */
 	void GetExecutableNodes(nodelist_t *ret_ptr) {
 		nodelist_t& ret = *ret_ptr;
+		DeserializedNode N; // payload only: its lists stay empty
+		uint32_t num_deps, deps_ix, num_startdeps, startdeps_ix;
 
-		for (uint32_t cnt=0; cnt<executableNodes.size(); cnt++) {	
+		for (uint32_t cnt=0; cnt<executableNodes.size(); cnt++) {
+			uint32_t offset = executableNodes[cnt];
+			decode_record(record(offset), N, num_deps, deps_ix, num_startdeps, startdeps_ix);
 			graph_node_properties gp;
-			gp.target = executableNodes[cnt].Peer;
-			gp.size = executableNodes[cnt].Size;
-			gp.tag = executableNodes[cnt].Tag;
-			gp.proc = executableNodes[cnt].Proc;
-			gp.nic = executableNodes[cnt].Nic;
-			if (executableNodes[cnt].Type == OPTYPE_SEND) gp.type = OP_SEND;
-			else if (executableNodes[cnt].Type == OPTYPE_RECV) gp.type = OP_RECV;
-			else if (executableNodes[cnt].Type == OPTYPE_CALC) gp.type = OP_LOCOP;
-			gp.offset = executableNodes[cnt].offset;
+			gp.target = N.Peer;
+			gp.size = N.Size;
+			gp.tag = N.Tag;
+			gp.proc = N.Proc;
+			gp.nic = N.Nic;
+			if (N.Type == OPTYPE_SEND) gp.type = OP_SEND;
+			else if (N.Type == OPTYPE_RECV) gp.type = OP_RECV;
+			else if (N.Type == OPTYPE_CALC) gp.type = OP_LOCOP;
+			gp.offset = offset;
 			ret.push_back(gp);
 		}
 		executableNodes.clear();
 	}
 
+	/* only the record's "wait for my start" list is read, walked in place in the appendix */
 	void MarkNodeAsStarted(uint32_t offset) {
-		release(get_node_by_offset(offset).StartDependOnMe);
+		uint32_t n, ix;
+		edges(offset, true, n, ix);
+		release(n, ix);
 	}
-		
+
+	/* only the record's "wait for my finish" list is read */
 	void MarkNodeAsDone(uint32_t offset) {
-		release(get_node_by_offset(offset).DependOnMe);
+		uint32_t n, ix;
+		edges(offset, false, n, ix);
+		release(n, ix);
 	}
 
 };
